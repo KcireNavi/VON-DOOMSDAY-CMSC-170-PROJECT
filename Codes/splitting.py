@@ -1,15 +1,46 @@
-def split(x, split):
-    split_index = int(len(x) * split)
-    x_train = x[split_index:] #The one used for training whihc is the first 80% oldest 
-    x_data = x[:split_index] #the one used for testing which is the newest being the last 2-%
-    return x_data, x_train
+def split(x, split_val):
+    split_index = int(len(x) * split_val)
+    x_train = x[:split_index]  # the first part which is oldest data used for training
+    x_test = x[split_index:]   # the last part which is newest data  used for testing
+    return x_train, x_test
+
 
 def accuracy(real, guessed):
     correct = 0
     for i in range(len(real)):
         if real[i] == guessed[i]:
             correct += 1
-    return correct / len(real) if real else 0 
+    return correct / len(real) if real else 0
+
+
+def countmetrics(real, guessed): #Evaluation metric
+    TP = FP = FN = TN = 0
+    for i in range(len(real)):
+        if real[i] == 1 and guessed[i] == 1:
+            TP += 1
+        elif real[i] == 0 and guessed[i] == 0:
+            TN += 1
+        elif real[i] == 0 and guessed[i] == 1:
+            FP += 1
+        else:
+            FN += 1
+
+    if TP + FP == 0:
+        precision = 0
+    else:
+        precision = TP / (TP + FP)
+    if TP + FN == 0:
+        recall = 0
+    else:
+        recall = TP / (TP + FN)
+   
+    if precision + recall == 0:
+        f1 = 0
+    else:
+        f1 = 2 * precision * recall / (precision + recall)
+
+    confusion = [[TN, FP], [FN, TP]] 
+    return precision, recall, f1, confusion
 
 
 #Tests
@@ -17,4 +48,10 @@ data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 split_val = .75
 train, test = split(data, split_val)
 print(train)
-print(test)
+print(test) 
+
+real = [0, 0, 0]
+guessed = [0, 0, 1]
+print()
+print(accuracy(real, guessed))     
+print(countmetrics(real, guessed))   

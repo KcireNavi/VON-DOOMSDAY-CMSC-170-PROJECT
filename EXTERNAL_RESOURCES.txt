@@ -1,3 +1,4 @@
-splitting.py:
+Abonal - splitting.py:
     Used klearn's test_train_split toy evaluate for the mode accuracy function
     KNN read is used for splitting data to train and test
+    Implemented countermetric from Naive Bayes Exercise 
