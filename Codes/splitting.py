@@ -1,26 +1,39 @@
 def split(x, split_val):
     split_index = int(len(x) * split_val)
-    x_train = x[:split_index]  # the first part which is oldest data used for training
-    x_test = x[split_index:]   # the last part which is newest data  used for testing
+    x_train = x[:split_index]
+    x_test = x[split_index:]
     return x_train, x_test
 
+def sort_by_date(x, y, dates):
+    pairs = []
+    for i in range(len(dates)):
+        pairs.append((dates[i], i))
+    pairs.sort()
+    order = []
+    for pair in pairs:
+        order.append(pair[1])
 
-def accuracy(real, guessed):
+    x_sorted = [x[i] for i in order]
+    y_sorted = [y[i] for i in order]
+    dates_sorted = [dates[i] for i in order]
+    return x_sorted, y_sorted, dates_sorted
+
+def accuracy(real, predict):
     correct = 0
     for i in range(len(real)):
-        if real[i] == guessed[i]:
+        if real[i] == predict[i]:
             correct += 1
     return correct / len(real) if real else 0
 
 
-def countmetrics(real, guessed): #Evaluation metric
+def countmetrics(real, predict):
     TP = FP = FN = TN = 0
     for i in range(len(real)):
-        if real[i] == 1 and guessed[i] == 1:
+        if real[i] == 1 and predict[i] == 1:
             TP += 1
-        elif real[i] == 0 and guessed[i] == 0:
+        elif real[i] == 0 and predict[i] == 0:
             TN += 1
-        elif real[i] == 0 and guessed[i] == 1:
+        elif real[i] == 0 and predict[i] == 1:
             FP += 1
         else:
             FN += 1
@@ -51,7 +64,7 @@ print(train)
 print(test) 
 
 real = [0, 0, 0]
-guessed = [0, 0, 1]
+predict = [0, 0, 1]
 print()
-print(accuracy(real, guessed))     
-print(countmetrics(real, guessed))   
+print(accuracy(real, predict))     
+print(countmetrics(real, predict))   
