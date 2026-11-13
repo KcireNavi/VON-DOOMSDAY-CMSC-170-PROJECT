@@ -1,3 +1,9 @@
+# AI Disclosure:
+# CLAUDE AI SONNET 5.5
+# Used CLAUDE AI SONNET 5.5 in splitting.py where it helped in implementing 
+# the sorting_date and count_metrics which based on the new dataset 
+# and other requirements given our list of methods
+
 def split(x, split_val):
     split_index = int(len(x) * split_val)
     x_train = x[:split_index]
@@ -57,14 +63,15 @@ def countmetrics(real, predict):
 
 
 #Tests
-data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-split_val = .75
-train, test = split(data, split_val)
-print(train)
-print(test) 
+if __name__ == "__main__":
+    data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    split_val = .75
+    train, test = split(data, split_val)
+    print(train)
+    print(test) 
 
-real = [0, 0, 0]
-predict = [0, 0, 1]
-print()
-print(accuracy(real, predict))     
-print(countmetrics(real, predict))   
+    real = [0, 0, 0]
+    predict = [0, 0, 1]
+    print()
+    print(accuracy(real, predict))     
+    print(countmetrics(real, predict))   
