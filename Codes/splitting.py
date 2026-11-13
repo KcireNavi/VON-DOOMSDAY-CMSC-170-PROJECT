@@ -57,14 +57,15 @@ def countmetrics(real, predict):
 
 
 #Tests
-data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-split_val = .75
-train, test = split(data, split_val)
-print(train)
-print(test) 
+if __name__ == "__main__":
+    data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    split_val = .75
+    train, test = split(data, split_val)
+    print(train)
+    print(test) 
 
-real = [0, 0, 0]
-predict = [0, 0, 1]
-print()
-print(accuracy(real, predict))     
-print(countmetrics(real, predict))   
+    real = [0, 0, 0]
+    predict = [0, 0, 1]
+    print()
+    print(accuracy(real, predict))     
+    print(countmetrics(real, predict))   
