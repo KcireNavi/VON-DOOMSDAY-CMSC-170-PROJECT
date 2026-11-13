@@ -1,3 +1,8 @@
+# AI Disclosure:
+# CLAUDE AI SONNET 5.5
+# Used Claude AI in splitting.py where it helped in fitting 
+# based on the dataset and other requirements given our list of methods
+
 def split(x, split_val):
     split_index = int(len(x) * split_val)
     x_train = x[:split_index]
