@@ -1,7 +1,8 @@
 # AI Disclosure:
 # CLAUDE AI SONNET 5.5
-# Used Claude AI in splitting.py where it helped in fitting 
-# based on the dataset and other requirements given our list of methods
+# Used CLAUDE AI SONNET 5.5 in splitting.py where it helped in implementing 
+# the sorting_date and count_metrics which based on the new dataset 
+# and other requirements given our list of methods
 
 def split(x, split_val):
     split_index = int(len(x) * split_val)
