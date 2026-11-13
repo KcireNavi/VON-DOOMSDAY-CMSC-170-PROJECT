@@ -11,5 +11,5 @@ Milestone 1:
 Milestone 2:
 
 Noble:
-Milestone 1:
-Milestone 2:
+Milestone 1: Suggested the dataset currently being used; Provided insights on what methods to use.
+Milestone 2: Data loading and Preprocessing Code; Identified errors on the initial plan, proposed and laid out the route of the project.
