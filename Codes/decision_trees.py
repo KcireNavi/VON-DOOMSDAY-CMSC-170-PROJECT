@@ -1,30 +1,239 @@
+# AI Disclosure:
+# CLAUDE AI SONNET 5.5
+# Used CLAUDE AI SONNET 5.5 in decision_trees.py 
+# where it helped in implementing building the framework for the decision tree method
+# the methed to build the tree and the logic for new data points.
+# and other requirements given our list of methods
+
+
+import os
 import numpy as np
 from preprocess import preprocess
 from splitting import accuracy, countmetrics
 
 
+csv_path = "../datasets/edited_dataset.csv"
+
+
 def gini(labels):
-    finished = np.sum(labels == 0)
-    unfinished = np.sum(labels == 1)
-    total = len(labels)
+    print("Measure impurity. A value of 0 means every row is in one class.")
+    if len(labels) == 0:
+        return 0.0
 
-    if total == 0:
+    counts = np.bincount(labels.astype(int), minlength=2)
+    probabilities = counts / len(labels)
+    return 1.0 - np.sum(probabilities ** 2)
+
+
+def majority_label(labels):
+    print("Return the class that occurs most frequently.")
+    counts = np.bincount(labels.astype(int), minlength=2)
+
+    if counts[0] >= counts[1]:
         return 0
+    return 1
 
-    finished_fraction = finished / total
-    unfinished_fraction = unfinished / total
-    return 1 - finished_fraction ** 2 - unfinished_fraction ** 2
+
+def find_best_split(features, labels, min_samples_leaf):
+    print("Find the feature and threshold with the lowest weighted Gini impurity.")
+    parent_impurity = gini(labels)
+
+    best_feature = None
+    best_threshold = None
+    best_gain = 0.0
+    best_left_mask = None
+    best_right_mask = None
+
+    for feature_index in range(features.shape[1]):
+        values = features[:, feature_index]
+        sorted_values = np.sort(np.unique(values))
+
+        if len(sorted_values) < 2:
+            continue
+
+        possible_thresholds = (
+            (sorted_values[:-1] + sorted_values[1:]) / 2.0
+        )
+
+        for threshold in possible_thresholds:
+            left_mask = values <= threshold
+            right_mask = ~left_mask
+
+            left_labels = labels[left_mask]
+            right_labels = labels[right_mask]
+
+            if (len(left_labels) < min_samples_leaf or
+                    len(right_labels) < min_samples_leaf):
+                continue
+
+            weighted_impurity = (
+                len(left_labels) * gini(left_labels)
+                + len(right_labels) * gini(right_labels)
+            ) / len(labels)
+
+            gain = parent_impurity - weighted_impurity
+
+            if gain > best_gain:
+                best_gain = gain
+                best_feature = feature_index
+                best_threshold = threshold
+                best_left_mask = left_mask
+                best_right_mask = right_mask
+
+    if best_feature is None:
+        return None
+
+    return (
+        best_feature,
+        best_threshold,
+        best_left_mask,
+        best_right_mask,
+        best_gain
+    )
+
+
+def build_tree(features, labels, max_depth, min_samples_split=10, min_samples_leaf=5, depth=0):
+    print("Build the decision tree recursively.")
+    node = {}
+
+    if (depth >= max_depth or
+            len(labels) < min_samples_split or
+            gini(labels) == 0.0):
+        node["leaf"] = True
+        node["prediction"] = majority_label(labels)
+        node["samples"] = len(labels)
+        return node
+
+    split = find_best_split(features, labels, min_samples_leaf)
+
+    if split is None:
+        node["leaf"] = True
+        node["prediction"] = majority_label(labels)
+        node["samples"] = len(labels)
+        return node
+
+    feature_index, threshold, left_mask, right_mask, gain = split
+
+    node["leaf"] = False
+    node["feature"] = feature_index
+    node["threshold"] = threshold
+    node["gain"] = gain
+    node["samples"] = len(labels)
+
+    node["left"] = build_tree(
+        features[left_mask],
+        labels[left_mask],
+        max_depth,
+        min_samples_split,
+        min_samples_leaf,
+        depth + 1
+    )
+
+    node["right"] = build_tree(
+        features[right_mask],
+        labels[right_mask],
+        max_depth,
+        min_samples_split,
+        min_samples_leaf,
+        depth + 1
+    )
+
+    return node
+
+
+def predict_one(tree, row):
+    print("Follow the tree until a leaf is reached.")
+    while not tree["leaf"]:
+        if row[tree["feature"]] <= tree["threshold"]:
+            tree = tree["left"]
+        else:
+            tree = tree["right"]
+
+    return tree["prediction"]
+
+
+def predict(tree, features):
+    print("Predict a label for every test row.")
+    predictions = []
+
+    for row in features:
+        predictions.append(predict_one(tree, row))
+
+    return predictions
+
+
+def print_tree(tree, feature_names, depth=0):
+    print("Print a simple text representation of the tree.")
+    prefix = "    " * depth
+
+    if tree["leaf"]:
+        print(prefix + "Predict " + str(tree["prediction"]))
+        return
+
+    feature_name = feature_names[tree["feature"]]
+
+    print(prefix + feature_name +  " <= " + str(round(float(tree["threshold"]), 4)))
+    print(prefix + "Left:")
+    print_tree(tree["left"], feature_names, depth + 1)
+
+    print(prefix + "Right:")
+    print_tree(tree["right"], feature_names, depth + 1)
 
 
 def main():
-    data = preprocess("../datasets/edited_dataset.csv")
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+    data = preprocess(csv_path)
 
     train_features = data["X_train"]
     test_features = data["X_test"]
     train_labels = data["y_train"]
     test_labels = data["y_test"]
+    feature_names = data["feature_names"]
 
-    print("Decision Tree - incomplete")
+    test_unfinished = 0
+    for label in test_labels:
+        if label == 1:
+            test_unfinished = test_unfinished + 1
+
+    print("Projects used: " +
+          str(len(train_features) + len(test_features)))
+    print("Train: " + str(len(train_features)) +
+          " Test: " + str(len(test_features)))
+    print("Test Unfinished: " + str(test_unfinished) + "\n")
+
+    tree = build_tree(
+        train_features,
+        train_labels,
+        max_depth=5,
+        min_samples_split=10,
+        min_samples_leaf=5
+    )
+
+    predicted_labels = predict(tree, test_features)
+
+    precision, recall, f1, confusion = countmetrics(
+        test_labels.tolist(),
+        predicted_labels
+    )
+
+    tn = confusion[0][0]
+    fp = confusion[0][1]
+    fn = confusion[1][0]
+    tp = confusion[1][1]
+
+    print("Decision Tree")
+    print("TP:", tp, "TN:", tn, "FP:", fp, "FN:", fn)
+    print("Accuracy:", accuracy(
+        test_labels.tolist(),
+        predicted_labels
+    ))
+    print("Precision:", precision)
+    print("Recall:", recall)
+    print("F1:", f1)
+
+    print("\nTree:")
+    print_tree(tree, feature_names)
 
 
 main()
