@@ -1,7 +1,7 @@
 from preprocess import preprocess
 from splitting import accuracy, countmetrics
 
-csv_path = "edited_dataset.csv"
+csv_path = "../datasets/edited_dataset.csv"
 k = [2.0, 1.0, 0.5, 0.1, 0.005] # k values given for observation
 
 threshold = 0.5
@@ -129,6 +129,21 @@ def classify(X_test, feature_names, edges, class_counts, value_counts, values_se
 
     return labels, probabilities
 
+
+# Milestone 3 wrapper: takes train data + test features, returns a list of 0s and 1s
+def run_naive_bayes(train_data, train_labels, test_data, feature_names, k_val=0.1, cutoff=threshold):
+    train_labels_list = list(train_labels)
+
+    edges = {}
+    for i in range(len(feature_names)):
+        feature = str(feature_names[i])
+        if feature in continuous_features:
+            edges[feature] = computeBinEdges(train_data[:, i], bin_num)
+
+    class_counts, value_counts, values_seen = computeCounts(train_data, train_labels_list, feature_names, edges)
+    predicted_labels, probabilities = classify(test_data, feature_names, edges, class_counts, value_counts, values_seen, k_val, cutoff)
+    return predicted_labels
+
         
 def main():
     data = preprocess(csv_path)
@@ -193,4 +208,5 @@ def main():
         print("Recall: " + str(recall))
         print("F1: " + str(f1) + "\n")
 
-main()
+if __name__ == "__main__":
+    main()
