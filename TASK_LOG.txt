@@ -1,7 +1,7 @@
 Abonal:
 Milestone 1: Initiatied Requirements
 Milestone 2: Time Splitting
-Milestone 3: Decision Tree Implementation and project page framework
+Milestone 3: Decision Tree Implementation
 
 Madelo:
 Milestone 1: Shared ideas in methods like KNN 

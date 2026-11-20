@@ -2,10 +2,8 @@
 # CLAUDE AI SONNET 5.5
 # Used CLAUDE AI SONNET 5.5 in decision_trees.py 
 # where it helped in implementing building the framework for the decision tree method
-# the methed to build the tree and the logic for new data points.
+# the method to build the tree and the logic for new data points.
 # and other requirements given our list of methods
-
-
 import os
 import numpy as np
 from preprocess import preprocess
@@ -16,7 +14,6 @@ csv_path = "../datasets/edited_dataset.csv"
 
 
 def gini(labels):
-    print("Measure impurity. A value of 0 means every row is in one class.")
     if len(labels) == 0:
         return 0.0
 
@@ -26,7 +23,6 @@ def gini(labels):
 
 
 def majority_label(labels):
-    print("Return the class that occurs most frequently.")
     counts = np.bincount(labels.astype(int), minlength=2)
 
     if counts[0] >= counts[1]:
@@ -35,7 +31,6 @@ def majority_label(labels):
 
 
 def find_best_split(features, labels, min_samples_leaf):
-    print("Find the feature and threshold with the lowest weighted Gini impurity.")
     parent_impurity = gini(labels)
 
     best_feature = None
@@ -92,8 +87,8 @@ def find_best_split(features, labels, min_samples_leaf):
     )
 
 
-def build_tree(features, labels, max_depth, min_samples_split=10, min_samples_leaf=5, depth=0):
-    print("Build the decision tree recursively.")
+def build_tree(features, labels, max_depth,
+               min_samples_split=10, min_samples_leaf=5, depth=0):
     node = {}
 
     if (depth >= max_depth or
@@ -142,7 +137,6 @@ def build_tree(features, labels, max_depth, min_samples_split=10, min_samples_le
 
 
 def predict_one(tree, row):
-    print("Follow the tree until a leaf is reached.")
     while not tree["leaf"]:
         if row[tree["feature"]] <= tree["threshold"]:
             tree = tree["left"]
@@ -153,7 +147,6 @@ def predict_one(tree, row):
 
 
 def predict(tree, features):
-    print("Predict a label for every test row.")
     predictions = []
 
     for row in features:
@@ -163,7 +156,6 @@ def predict(tree, features):
 
 
 def print_tree(tree, feature_names, depth=0):
-    print("Print a simple text representation of the tree.")
     prefix = "    " * depth
 
     if tree["leaf"]:
@@ -172,7 +164,8 @@ def print_tree(tree, feature_names, depth=0):
 
     feature_name = feature_names[tree["feature"]]
 
-    print(prefix + feature_name +  " <= " + str(round(float(tree["threshold"]), 4)))
+    print(prefix + feature_name +
+          " <= " + str(round(float(tree["threshold"]), 4)))
     print(prefix + "Left:")
     print_tree(tree["left"], feature_names, depth + 1)
 
@@ -182,7 +175,6 @@ def print_tree(tree, feature_names, depth=0):
 
 def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
     data = preprocess(csv_path)
 
     train_features = data["X_train"]
@@ -191,16 +183,33 @@ def main():
     test_labels = data["y_test"]
     feature_names = data["feature_names"]
 
-    test_unfinished = 0
-    for label in test_labels:
-        if label == 1:
-            test_unfinished = test_unfinished + 1
+    test_unfinished = np.sum(test_labels == 1)
 
     print("Projects used: " +
           str(len(train_features) + len(test_features)))
     print("Train: " + str(len(train_features)) +
           " Test: " + str(len(test_features)))
     print("Test Unfinished: " + str(test_unfinished) + "\n")
+
+    lazy_labels = [0] * len(test_labels)
+
+    lazy_precision, lazy_recall, lazy_f1, lazy_confusion = countmetrics(
+        test_labels.tolist(),
+        lazy_labels
+    )
+
+    lazy_tn = lazy_confusion[0][0]
+    lazy_fp = lazy_confusion[0][1]
+    lazy_fn = lazy_confusion[1][0]
+    lazy_tp = lazy_confusion[1][1]
+
+    print("Lazy Guesser (always finished)")
+    print("TP:", lazy_tp, "TN:", lazy_tn,
+          "FP:", lazy_fp, "FN:", lazy_fn)
+    print("Accuracy:", accuracy(test_labels.tolist(), lazy_labels))
+    print("Precision:", lazy_precision)
+    print("Recall:", lazy_recall)
+    print("F1:", lazy_f1, "\n")
 
     tree = build_tree(
         train_features,
@@ -236,4 +245,5 @@ def main():
     print_tree(tree, feature_names)
 
 
-main()
+if __name__ == "__main__":
+    main()
