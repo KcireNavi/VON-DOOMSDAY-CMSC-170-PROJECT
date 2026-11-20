@@ -9,9 +9,9 @@ Milestone 2: K-nearest neighbors method
 Milestone 3: Comparison
 
 Manuel:
-Milestone 1:
-Milestone 2:
-Milestone 3:
+Milestone 1: Shared ideas regarding which dataset to choose and what methods to implement
+Milestone 2: Naive Bayes
+Milestone 3: 
 
 Noble:
 Milestone 1: Suggested the dataset currently being used; Provided insights on what methods to use.
