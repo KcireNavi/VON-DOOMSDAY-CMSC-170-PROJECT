@@ -9,7 +9,7 @@ from preprocess import preprocess
 from splitting import accuracy, countmetrics
 from knn import run_knn
 from naive_bayes import run_naive_bayes
-# from decision_tree import run_decision_tree  # uncomment once Julian pushes decision_tree.py
+from decision_trees import build_tree, predict
 
 if os.path.exists("datasets/edited_dataset.csv"):
     csv_path = "datasets/edited_dataset.csv"
@@ -146,10 +146,11 @@ def run_comparison():
     knn_wt_result = evaluate_method("KNN Class-Weighted (k=15)", test_labels, knn_wt_preds)
     results.append(knn_wt_result)
 
-    # 5. Decision Tree (uncomment once Julian pushes decision_tree.py)
-    # dt_preds = run_decision_tree(train_data, train_labels, test_data)
-    # dt_result = evaluate_method("Decision Tree", test_labels, dt_preds)
-    # results.append(dt_result)
+    # 5. Decision Tree
+    tree = build_tree(train_data, data["y_train"], 5, 10, 5)
+    dt_preds = predict(tree, test_data)
+    dt_result = evaluate_method("Decision Tree (depth=5)", test_labels, dt_preds)
+    results.append(dt_result)
 
     print_results_table(results)
     return results
