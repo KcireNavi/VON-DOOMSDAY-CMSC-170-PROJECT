@@ -16,4 +16,4 @@ Milestone 3: Fixed the low number of unfinished projects in the training split. 
 Noble:
 Milestone 1: Suggested the dataset currently being used; Provided insights on what methods to use.
 Milestone 2: Data loading and Preprocessing Code; Identified errors on the initial plan, proposed and laid out the route of the project.
-Milestone 3:
+Milestone 3: Helped fixing the train/test split; minor changes on the comparison graphs
