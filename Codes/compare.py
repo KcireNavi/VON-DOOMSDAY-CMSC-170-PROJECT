@@ -5,6 +5,7 @@
 # and save their scores in the same format for the table and graphs.
 
 import os
+import matplotlib.pyplot as plt
 from preprocess import preprocess
 from splitting import accuracy, countmetrics
 from knn import run_knn
@@ -105,7 +106,65 @@ def print_results_table(results):
         print(res["name"])
         print("  TP: " + str(tp) + "  TN: " + str(tn) + "  FP: " + str(fp) + "  FN: " + str(fn))
 
+    #function for graphing the results of the methods in a bar graph
+def create_metrics_graph(results):
+    methods = []
+    accuracy_values = []
+    precision_values = []
+    recall_values = []
+    f1_values = []
 
+    for result in results:
+        methods.append(result["name"])
+        accuracy_values.append(result["accuracy"])
+        precision_values.append(result["precision"])
+        recall_values.append(result["recall"])
+        f1_values.append(result["f1"])
+
+    positions = list(range(len(methods)))
+    width = 0.2
+
+    plt.figure(figsize=(12, 6))
+
+    plt.bar(
+        [x - 1.5 * width for x in positions],
+        accuracy_values,
+        width,
+        label="Accuracy"
+    )
+
+    plt.bar(
+        [x - 0.5 * width for x in positions],
+        precision_values,
+        width,
+        label="Precision"
+    )
+
+    plt.bar(
+        [x + 0.5 * width for x in positions],
+        recall_values,
+        width,
+        label="Recall"
+    )
+
+    plt.bar(
+        [x + 1.5 * width for x in positions],
+        f1_values,
+        width,
+        label="F1-score"
+    )
+
+    plt.xlabel("Method")
+    plt.ylabel("Score")
+    plt.title("Comparison of Classification Methods")
+    plt.xticks(positions, methods, rotation=25, ha="right")
+    plt.ylim(0, 1)
+    plt.legend()
+    plt.tight_layout()
+
+    plt.savefig("method_comparison.png")
+    plt.show()
+    
 # Runs all methods on the exact same dataset split and returns the list of results
 def run_comparison():
     data = preprocess(csv_path)
@@ -152,7 +211,9 @@ def run_comparison():
     dt_result = evaluate_method("Decision Tree (depth=5)", test_labels, dt_preds)
     results.append(dt_result)
 
+    # 6. Graph and Table Output
     print_results_table(results)
+    create_metrics_graph(results)
     return results
 
 
