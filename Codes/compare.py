@@ -1,3 +1,9 @@
+# AI Disclosure:
+# GEMINI 3 PRO
+# Used Gemini 3 Pro in this script where it helped in
+# connecting all the models into run_comparison() so they run on the same data
+# and save their scores in the same format for the table and graphs.
+
 import os
 from preprocess import preprocess
 from splitting import accuracy, countmetrics
