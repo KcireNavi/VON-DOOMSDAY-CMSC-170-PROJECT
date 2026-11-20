@@ -1,3 +1,14 @@
+"""
+    AI DECLARATION FORM
+
+    [1] Used Claude AI (Sonnet 5.5) to generate a solution on how to implement budget as a feature for Naive Bayes. The raw budget is a continuous number that is pretty much unique which would make it meaningless to count per class. 
+
+
+    [2] Used Claude AI (Sonnet 5.5) to ensure the proper usage and application of formulas related to Naive Bayes
+
+    References given by Claude AI (Sonnet 5.5) which was cross-checked to see if they truly exist:
+    Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised discretization of continuous features. ICML-12, 194-202. https://scispace.com/papers/supervised-and-unsupervised-discretization-of-continuous-1g5hgz019n
+"""
 from preprocess import preprocess
 from splitting import accuracy, countmetrics
 
