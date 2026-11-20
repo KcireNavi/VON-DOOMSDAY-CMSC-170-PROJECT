@@ -195,23 +195,18 @@ def run_comparison():
     nb_result = evaluate_method("Naive Bayes (k=0.1)", test_labels, nb_preds)
     results.append(nb_result)
 
-    # 3. KNN (Standard)
+    # 3. KNN
     knn_std_preds = run_knn(train_data, train_labels, test_data, 5, 2, False)
     knn_std_result = evaluate_method("KNN Standard (k=5)", test_labels, knn_std_preds)
     results.append(knn_std_result)
 
-    # 4. KNN (Class-Weighted Workaround)
-    knn_wt_preds = run_knn(train_data, train_labels, test_data, 15, 2, True)
-    knn_wt_result = evaluate_method("KNN Class-Weighted (k=15)", test_labels, knn_wt_preds)
-    results.append(knn_wt_result)
-
-    # 5. Decision Tree
+    # 4. Decision Tree
     tree = build_tree(train_data, data["y_train"], 5, 10, 5)
     dt_preds = predict(tree, test_data)
     dt_result = evaluate_method("Decision Tree (depth=5)", test_labels, dt_preds)
     results.append(dt_result)
 
-    # 6. Graph and Table Output
+    # 5. Graph and Table Output
     print_results_table(results)
     create_metrics_graph(results)
     return results
