@@ -75,6 +75,25 @@ def classify(all_sorted_distances, k, unfinished_weight):
     return predictions
 
 
+# Milestone 3 wrapper: takes train data + test features, returns a list of 0s and 1s
+def run_knn(train_data, train_labels, test_data, k=15, p_val=2, weighted=True):
+    train_labels_list = list(train_labels)
+    class_counts = computeClassCounts(train_labels_list)
+
+    if weighted:
+        unfinished_weight = class_counts[0] / class_counts[1]
+    else:
+        unfinished_weight = 1
+
+    all_sorted_distances = []
+    for i in range(len(test_data)):
+        sorted_distances = getSortedDistances(test_data[i], train_data, train_labels_list, p_val)
+        all_sorted_distances.append(sorted_distances)
+
+    predictions = classify(all_sorted_distances, k, unfinished_weight)
+    return predictions
+
+
 def main():
     data = preprocess(csv_path)
 
@@ -160,4 +179,5 @@ def main():
         print("Recall: " + str(recall))
         print("F1: " + str(f1) + "\n")
 
-main()
+if __name__ == "__main__":
+    main()

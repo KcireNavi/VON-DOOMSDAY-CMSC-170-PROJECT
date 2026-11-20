@@ -1,10 +1,14 @@
+import os
 from preprocess import preprocess
 from splitting import accuracy, countmetrics
 from knn import run_knn
 from naive_bayes import run_naive_bayes
 # from decision_tree import run_decision_tree  # uncomment once Julian pushes decision_tree.py
 
-csv_path = "../datasets/edited_dataset.csv"
+if os.path.exists("datasets/edited_dataset.csv"):
+    csv_path = "datasets/edited_dataset.csv"
+else:
+    csv_path = "../datasets/edited_dataset.csv"
 
 
 # counts how many labels in a list are unfinished (1)
