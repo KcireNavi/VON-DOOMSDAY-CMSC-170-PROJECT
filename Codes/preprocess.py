@@ -71,7 +71,7 @@ def parse_date(text):
     if text is None:
         return None
 
-    possible_formats = ["%d/%m/%Y", "%Y-%m-%d"]
+    possible_formats = ["%m/%d/%Y", "%Y-%m-%d"]
     for date_format in possible_formats:
         try:
             parsed = datetime.datetime.strptime(text, date_format)
