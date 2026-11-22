@@ -25,6 +25,8 @@ def sort_by_date(x, y, dates):
     return x_sorted, y_sorted, dates_sorted
 
 def accuracy(real, predict):
+    real = list(real)
+    predict = list(predict)
     correct = 0
     for i in range(len(real)):
         if real[i] == predict[i]:

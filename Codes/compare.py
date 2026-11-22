@@ -1,214 +1,322 @@
+
 # AI Disclosure:
 # GEMINI 3 PRO
 # Used Gemini 3 Pro in this script where it helped in
 # connecting all the models into run_comparison() so they run on the same data
 # and save their scores in the same format for the table and graphs.
 
+
+# AI Disclosure:
+# CLAUDE AI SONNET 5.5
+# Used CLAUDE AI SONNET 5.5 in fixing compare.py where i used it in order to find issue in the code and fix it so that all methods are trained and tested on the same data
+#also used it to understand and build the proper fixes and find issues within the code
+# and other requirements given our list of methods
+
 import os
+
 import matplotlib.pyplot as plt
-from preprocess import preprocess
+import numpy as np
+
+from preprocess import (
+    read_projects,
+    split_by_maturity,
+    SNAPSHOT_DATE,
+    MATURITY_DAYS,
+    fit_parameters,
+    build_features,
+)
 from splitting import accuracy, countmetrics
 from knn import run_knn
 from naive_bayes import run_naive_bayes
 from decision_trees import build_tree, predict
 
-if os.path.exists("datasets/edited_dataset.csv"):
-    csv_path = "datasets/edited_dataset.csv"
-else:
-    csv_path = "../datasets/edited_dataset.csv"
+
+CODE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_PATH = os.path.join(CODE_DIR, "..", "datasets", "edited_dataset.csv")
+
+FALSE_POSITIVE_COST = 1
+FALSE_NEGATIVE_COST = 5
 
 
-# counts how many labels in a list are unfinished (1)
-def count_unfinished(labels):
-    count = 0
-    for label in labels:
-        if label == 1:
-            count = count + 1
-    return count
+# Creates three chronological groups for validation.
+def create_folds(projects):
+    projects = sorted(projects, key=lambda project: project["start_date"])
+    folds = []
+
+    for fold_number in range(3):
+        train_end = int(len(projects) * (0.70 + fold_number * 0.10))
+        test_end = int(len(projects) * (0.80 + fold_number * 0.10))
+
+        while (train_end < len(projects)
+               and projects[train_end]["start_date"]
+               == projects[train_end - 1]["start_date"]):
+            train_end += 1
+        while (test_end < len(projects)
+               and projects[test_end]["start_date"]
+               == projects[test_end - 1]["start_date"]):
+            test_end += 1
+
+        folds.append((
+            projects[:train_end],
+            projects[train_end:test_end],
+        ))
+
+    return folds
 
 
-# adds spaces to the end of a string so columns line up nicely in the table
-def pad_text(text, width):
-    result = str(text)
-    while len(result) < width:
-        result = result + " "
-    return result
+# Builds and standardizes features for one fold.
+def prepare_fold(train_projects, test_projects):
+    parameters = fit_parameters(train_projects)
+
+    train_features, feature_names, positions = build_features(
+        train_projects, parameters, is_train=True)
+    test_features, _, _ = build_features(
+        test_projects, parameters, is_train=False)
+
+    train_continuous = train_features[:, positions]
+    means = np.mean(train_continuous, axis=0)
+    stds = np.std(train_continuous, axis=0)
+    stds[stds == 0] = 1
+
+    train_features[:, positions] = (
+        (train_features[:, positions] - means) / stds)
+    test_features[:, positions] = (
+        (test_features[:, positions] - means) / stds)
+
+    train_labels = np.array([project["label"] for project in train_projects])
+    test_labels = np.array([project["label"] for project in test_projects])
+
+    return train_features, test_features, train_labels, test_labels, feature_names
 
 
-# Baseline method: always predicts 0 (finished) for every test project
-def run_always_finished(train_data, train_labels, test_data):
-    predictions = []
-    for i in range(len(test_data)):
-        predictions.append(0)
-    return predictions
+# Copies unfinished examples to balance the decision-tree training data.
+def balance_data(features, labels):
+    unfinished = features[labels == 1]
+    finished = features[labels == 0]
+
+    if len(unfinished) == 0:
+        return features, labels
+
+    balanced_unfinished = np.vstack(
+        [unfinished] * int(np.ceil(len(finished) / len(unfinished))))
+    balanced_unfinished = balanced_unfinished[:len(finished)]
+
+    balanced_features = np.vstack((finished, balanced_unfinished))
+    balanced_labels = np.concatenate((
+        np.zeros(len(finished)),
+        np.ones(len(balanced_unfinished)),
+    ))
+    return balanced_features, balanced_labels
 
 
-# Scores one method's predictions and puts the metrics into a dictionary
-def evaluate_method(name, real_labels, predicted_labels):
-    acc = accuracy(real_labels, predicted_labels)
-    precision, recall, f1, confusion = countmetrics(real_labels, predicted_labels)
+# Calculates metrics, cost, and the confusion matrix.
+def evaluate(name, real_labels, predictions):
+    precision, recall, f1, confusion = countmetrics(
+        real_labels, predictions)
+    fp = confusion[0][1]
+    fn = confusion[1][0]
 
-    result = {
+    return {
         "name": name,
-        "accuracy": acc,
+        "accuracy": accuracy(real_labels, predictions),
         "precision": precision,
         "recall": recall,
         "f1": f1,
-        "confusion_matrix": confusion, # [[TN, FP], [FN, TP]]
+        "cost": fp * FALSE_POSITIVE_COST + fn * FALSE_NEGATIVE_COST,
+        "confusion": confusion,
     }
-    return result
 
 
-# Prints a clean comparison table and the confusion matrix breakdown for every method
-def print_results_table(results):
-    line = "-" * 96
-    print(line)
-    header = (
-        pad_text("Method", 28)
-        + " | " + pad_text("Accuracy", 8)
-        + " | " + pad_text("Precision", 9)
-        + " | " + pad_text("Recall", 8)
-        + " | " + pad_text("F1", 8)
-        + " | Confusion Matrix"
-    )
-    print(header)
-    print(line)
+# Chooses settings by cost on the validation portion.
+def choose_settings(train_data, train_labels, test_data,
+                    test_labels, feature_names):
+    nb_cutoff = 0.5
+    nb_cost = None
+    for cutoff in [0.3, 0.5, 0.7]:
+        predictions = run_naive_bayes(
+            train_data, train_labels.tolist(), test_data,
+            feature_names, k_val=0.1, cutoff=cutoff)
+        cost = evaluate("NB", test_labels.tolist(), predictions)["cost"]
+        if nb_cost is None or cost < nb_cost:
+            nb_cutoff, nb_cost = cutoff, cost
 
-    for res in results:
-        acc_text = str(round(res["accuracy"], 4))
-        prec_text = str(round(res["precision"], 4))
-        rec_text = str(round(res["recall"], 4))
-        f1_text = str(round(res["f1"], 4))
-        cm_text = str(res["confusion_matrix"])
+    knn_k = 5
+    knn_cost = None
+    for k in [3, 5, 7, 11]:
+        predictions = run_knn(
+            train_data, train_labels, test_data,
+            k=k, p_val=2, weighted=True)
+        cost = evaluate("KNN", test_labels.tolist(), predictions)["cost"]
+        if knn_cost is None or cost < knn_cost:
+            knn_k, knn_cost = k, cost
 
-        row = (
-            pad_text(res["name"], 28)
-            + " | " + pad_text(acc_text, 8)
-            + " | " + pad_text(prec_text, 9)
-            + " | " + pad_text(rec_text, 8)
-            + " | " + pad_text(f1_text, 8)
-            + " | " + cm_text
-        )
-        print(row)
+    tree_depth = 5
+    tree_cost = None
+    balanced_features, balanced_labels = balance_data(
+        train_data, train_labels)
+    for depth in [3, 5, 7]:
+        tree = build_tree(
+            balanced_features, balanced_labels,
+            max_depth=depth,
+            min_samples_split=10,
+            min_samples_leaf=5)
+        predictions = predict(tree, test_data)
+        cost = evaluate("Tree", test_labels.tolist(), predictions)["cost"]
+        if tree_cost is None or cost < tree_cost:
+            tree_depth, tree_cost = depth, cost
 
-    print(line)
-    print("")
+    return nb_cutoff, knn_k, tree_depth
 
-    # Also print TN, FP, FN, TP clearly for each method
-    print("Confusion Matrix Details:")
-    for res in results:
-        confusion = res["confusion_matrix"]
-        tn = confusion[0][0]
-        fp = confusion[0][1]
-        fn = confusion[1][0]
-        tp = confusion[1][1]
 
-        print(res["name"])
-        print("  TP: " + str(tp) + "  TN: " + str(tn) + "  FP: " + str(fp) + "  FN: " + str(fn))
+# Finds fold averages, standard deviations, and total confusion counts.
+def combine_results(name, fold_results):
+    combined = {"name": name, "confusion": [[0, 0], [0, 0]]}
 
-    #function for graphing the results of the methods in a bar graph
-def create_metrics_graph(results):
-    methods = []
-    accuracy_values = []
-    precision_values = []
-    recall_values = []
-    f1_values = []
+    for metric in ["accuracy", "precision", "recall", "f1", "cost"]:
+        values = [result[metric] for result in fold_results]
+        combined[metric] = float(np.mean(values))
+        combined[metric + "_std"] = float(np.std(values))
+
+    for result in fold_results:
+        for row in range(2):
+            for column in range(2):
+                combined["confusion"][row][column] += (
+                    result["confusion"][row][column])
+
+    return combined
+
+
+# Prints mean metrics and combined confusion matrices.
+def print_results(results):
+    print("Method     Accuracy    Precision       Recall        F1     Cost")
 
     for result in results:
-        methods.append(result["name"])
-        accuracy_values.append(result["accuracy"])
-        precision_values.append(result["precision"])
-        recall_values.append(result["recall"])
-        f1_values.append(result["f1"])
+        print(
+            result["name"]
+            + f'{result["accuracy"]:.4f} +/- {result["accuracy_std"]:.4f} '
+            + f'{result["precision"]:.4f} +/- {result["precision_std"]:.4f}  '
+            + f'{result["recall"]:.4f} +/- {result["recall_std"]:.4f}  '
+            + f'{result["f1"]:.4f} +/- {result["f1_std"]:.4f} '
+            + f'{result["cost"]:.4f} +/- {result["cost_std"]:.4f} '
+        )
 
-    positions = list(range(len(methods)))
-    width = 0.2
+    print("\nCombined Confusion Matrices:")
+    for result in results:
+        tn, fp = result["confusion"][0]
+        fn, tp = result["confusion"][1]
+        print(f'{result["name"]}: TP={tp}, TN={tn}, FP={fp}, FN={fn}')
+
+
+# Creates the bar graph with standard-deviation error bars.
+def create_graph(results):
+    names = [result["name"] for result in results]
+    positions = range(len(names))
 
     plt.figure(figsize=(12, 6))
+    for index, (metric, label) in enumerate([
+            ("accuracy", "Accuracy"),
+            ("precision", "Precision"),
+            ("recall", "Recall"),
+            ("f1", "F1-score")]):
+        values = [result[metric] for result in results]
+        stds = [result[metric + "_std"] for result in results]
+        plt.bar(
+            [position + (index - 1.5) * 0.2 for position in positions],
+            values,
+            0.2,
+            yerr=stds,
+            capsize=3,
+            label=label)
 
-    plt.bar(
-        [x - 1.5 * width for x in positions],
-        accuracy_values,
-        width,
-        label="Accuracy"
-    )
-
-    plt.bar(
-        [x - 0.5 * width for x in positions],
-        precision_values,
-        width,
-        label="Precision"
-    )
-
-    plt.bar(
-        [x + 0.5 * width for x in positions],
-        recall_values,
-        width,
-        label="Recall"
-    )
-
-    plt.bar(
-        [x + 1.5 * width for x in positions],
-        f1_values,
-        width,
-        label="F1-score"
-    )
-
+    plt.xticks(list(range(len(names))), names, rotation=25, ha="right")
     plt.xlabel("Method")
     plt.ylabel("Score")
     plt.title("Comparison of Classification Methods")
-    plt.xticks(positions, methods, rotation=25, ha="right")
     plt.ylim(0, 1)
     plt.legend()
     plt.tight_layout()
+    plt.savefig(os.path.join(CODE_DIR, "method_comparison.png"))
 
-    plt.savefig("method_comparison.png")
-    plt.show()
-    
-# Runs all methods on the exact same dataset split and returns the list of results
+
+# Runs every method on all folds and combines the results.
 def run_comparison():
-    data = preprocess(csv_path)
+    projects = read_projects(CSV_PATH)
+    matured_projects, _, _ = split_by_maturity(
+        projects, SNAPSHOT_DATE, MATURITY_DAYS)
+    folds = create_folds(matured_projects)
 
-    train_data = data["X_train"]
-    test_data = data["X_test"]
-    train_labels = data["y_train"].tolist()
-    test_labels = data["y_test"].tolist()
-    feature_names = data["feature_names"]
+    names = [
+        "Always Finished (Baseline)",
+        "Naive Bayes (validated)",
+        "KNN Weighted (validated)",
+        "Decision Tree (balanced)",
+    ]
+    fold_results = {name: [] for name in names}
 
-    train_unfinished = count_unfinished(train_labels)
-    test_unfinished = count_unfinished(test_labels)
+    print("Three chronological validation folds")
+    print(
+        f"Cost: FP={FALSE_POSITIVE_COST}, "
+        f"FN={FALSE_NEGATIVE_COST}\n")
 
-    print("Projects used: " + str(len(train_data) + len(test_data)))
-    print("Train: " + str(len(train_data)) + " (Unfinished: " + str(train_unfinished) + ")")
-    print("Test: " + str(len(test_data)) + " (Unfinished: " + str(test_unfinished) + ")")
+    for fold_number, (train_projects, test_projects) in enumerate(
+            folds, start=1):
+        split_at = int(len(train_projects) * 0.70)
+        while (split_at < len(train_projects)
+               and train_projects[split_at]["start_date"]
+               == train_projects[split_at - 1]["start_date"]):
+            split_at += 1
+
+        validation_data = prepare_fold(
+            train_projects[:split_at],
+            train_projects[split_at:])
+        nb_cutoff, knn_k, tree_depth = choose_settings(
+            validation_data[0],
+            validation_data[2],
+            validation_data[1],
+            validation_data[3],
+            validation_data[4])
+
+        train_data, test_data, train_labels, test_labels, feature_names = (
+            prepare_fold(train_projects, test_projects))
+
+        print(
+            f"Fold {fold_number}: train={len(train_data)}, "
+            f"test={len(test_data)}, "
+            f"unfinished test={sum(test_labels)}")
+        print(
+            f"  Selected: cutoff={nb_cutoff}, "
+            f"k={knn_k}, depth={tree_depth}")
+
+        predictions = {
+            names[0]: [0] * len(test_data),
+            names[1]: run_naive_bayes(
+                train_data, train_labels.tolist(), test_data,
+                feature_names, k_val=0.1, cutoff=nb_cutoff),
+            names[2]: run_knn(
+                train_data, train_labels, test_data,
+                k=knn_k, p_val=2, weighted=True),
+        }
+
+        balanced_features, balanced_labels = balance_data(
+            train_data, train_labels)
+        tree = build_tree(
+            balanced_features, balanced_labels,
+            max_depth=tree_depth,
+            min_samples_split=10,
+            min_samples_leaf=5)
+        predictions[names[3]] = predict(tree, test_data)
+
+        for name, predicted_labels in predictions.items():
+            fold_results[name].append(evaluate(
+                name, test_labels.tolist(), predicted_labels))
+
     print("")
-
-    results = []
-
-    # 1. Always Finished Baseline
-    baseline_preds = run_always_finished(train_data, train_labels, test_data)
-    baseline_result = evaluate_method("Always Finished (Baseline)", test_labels, baseline_preds)
-    results.append(baseline_result)
-
-    # 2. Naive Bayes
-    nb_preds = run_naive_bayes(train_data, train_labels, test_data, feature_names)
-    nb_result = evaluate_method("Naive Bayes (k=0.1)", test_labels, nb_preds)
-    results.append(nb_result)
-
-    # 3. KNN
-    knn_std_preds = run_knn(train_data, train_labels, test_data, 5, 2, False)
-    knn_std_result = evaluate_method("KNN Standard (k=5)", test_labels, knn_std_preds)
-    results.append(knn_std_result)
-
-    # 4. Decision Tree
-    tree = build_tree(train_data, data["y_train"], 5, 10, 5)
-    dt_preds = predict(tree, test_data)
-    dt_result = evaluate_method("Decision Tree (depth=5)", test_labels, dt_preds)
-    results.append(dt_result)
-
-    # 5. Graph and Table Output
-    print_results_table(results)
-    create_metrics_graph(results)
+    results = [
+        combine_results(name, fold_results[name])
+        for name in names
+    ]
+    print_results(results)
+    create_graph(results)
     return results
 
 
