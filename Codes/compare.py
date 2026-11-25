@@ -1,19 +1,11 @@
-
 # AI Disclosure:
 # GEMINI 3 PRO
 # Used Gemini 3 Pro in this script where it helped in
 # connecting all the models into run_comparison() so they run on the same data
 # and save their scores in the same format for the table and graphs.
 
-
-# AI Disclosure:
-# CLAUDE AI SONNET 5.5
-# Used CLAUDE AI SONNET 5.5 in fixing compare.py where i used it in order to find issue in the code and fix it so that all methods are trained and tested on the same data
-#also used it to understand and build the proper fixes and find issues within the code
-# and other requirements given our list of methods
-
 import os
-
+import random
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -27,61 +19,44 @@ from preprocess import (
 )
 from splitting import accuracy, countmetrics
 from knn import run_knn
+import naive_bayes
 from naive_bayes import run_naive_bayes
 from decision_trees import build_tree, predict
 
 
 CODE_DIR = os.path.dirname(os.path.abspath(__file__))
-CSV_PATH = os.path.join(CODE_DIR, "..", "datasets", "edited_dataset.csv")
+CSV_PATH = os.path.join(CODE_DIR, "..", "datasets", "landslides.csv")
 
 FALSE_POSITIVE_COST = 1
-FALSE_NEGATIVE_COST = 5
+FALSE_NEGATIVE_COST = 2
 
 
-# Creates three chronological groups for validation.
-def create_folds(projects):
-    projects = sorted(projects, key=lambda project: project["start_date"])
+# Creates validation folds.
+def create_folds(projects, k_folds=3, seed=42):
+    random.seed(seed)
+    shuffled = list(projects)
+    random.shuffle(shuffled)
+
+    fold_size = len(shuffled) // k_folds
     folds = []
-
-    for fold_number in range(3):
-        train_end = int(len(projects) * (0.70 + fold_number * 0.10))
-        test_end = int(len(projects) * (0.80 + fold_number * 0.10))
-
-        while (train_end < len(projects)
-               and projects[train_end]["start_date"]
-               == projects[train_end - 1]["start_date"]):
-            train_end += 1
-        while (test_end < len(projects)
-               and projects[test_end]["start_date"]
-               == projects[test_end - 1]["start_date"]):
-            test_end += 1
-
-        folds.append((
-            projects[:train_end],
-            projects[train_end:test_end],
-        ))
+    for i in range(k_folds):
+        test_start = i * fold_size
+        test_end = (i + 1) * fold_size if i < k_folds - 1 else len(shuffled)
+        test_set = shuffled[test_start:test_end]
+        train_set = shuffled[:test_start] + shuffled[test_end:]
+        folds.append((train_set, test_set))
 
     return folds
 
 
-# Builds and standardizes features for one fold.
+# Builds features for one fold.
 def prepare_fold(train_projects, test_projects):
     parameters = fit_parameters(train_projects)
 
-    train_features, feature_names, positions = build_features(
+    train_features, feature_names, continuous_positions = build_features(
         train_projects, parameters, is_train=True)
     test_features, _, _ = build_features(
         test_projects, parameters, is_train=False)
-
-    train_continuous = train_features[:, positions]
-    means = np.mean(train_continuous, axis=0)
-    stds = np.std(train_continuous, axis=0)
-    stds[stds == 0] = 1
-
-    train_features[:, positions] = (
-        (train_features[:, positions] - means) / stds)
-    test_features[:, positions] = (
-        (test_features[:, positions] - means) / stds)
 
     train_labels = np.array([project["label"] for project in train_projects])
     test_labels = np.array([project["label"] for project in test_projects])
@@ -89,22 +64,21 @@ def prepare_fold(train_projects, test_projects):
     return train_features, test_features, train_labels, test_labels, feature_names
 
 
-# Copies unfinished examples to balance the decision-tree training data.
+# Copies positive examples to balance the decision-tree training data.
 def balance_data(features, labels):
-    unfinished = features[labels == 1]
-    finished = features[labels == 0]
+    minority = features[labels == 1]
+    majority = features[labels == 0]
 
-    if len(unfinished) == 0:
+    if len(minority) == 0:
         return features, labels
 
-    balanced_unfinished = np.vstack(
-        [unfinished] * int(np.ceil(len(finished) / len(unfinished))))
-    balanced_unfinished = balanced_unfinished[:len(finished)]
+    multiplier = int(np.ceil(len(majority) / len(minority)))
+    balanced_minority = np.vstack([minority] * multiplier)[:len(majority)]
 
-    balanced_features = np.vstack((finished, balanced_unfinished))
+    balanced_features = np.vstack((majority, balanced_minority))
     balanced_labels = np.concatenate((
-        np.zeros(len(finished)),
-        np.ones(len(balanced_unfinished)),
+        np.zeros(len(majority)),
+        np.ones(len(balanced_minority)),
     ))
     return balanced_features, balanced_labels
 
@@ -188,16 +162,16 @@ def combine_results(name, fold_results):
 
 # Prints mean metrics and combined confusion matrices.
 def print_results(results):
-    print("Method     Accuracy    Precision       Recall        F1     Cost")
+    print("Method                       Accuracy            Precision           Recall              F1                  Cost")
 
     for result in results:
         print(
-            result["name"]
-            + f'{result["accuracy"]:.4f} +/- {result["accuracy_std"]:.4f} '
-            + f'{result["precision"]:.4f} +/- {result["precision_std"]:.4f}  '
-            + f'{result["recall"]:.4f} +/- {result["recall_std"]:.4f}  '
-            + f'{result["f1"]:.4f} +/- {result["f1_std"]:.4f} '
-            + f'{result["cost"]:.4f} +/- {result["cost_std"]:.4f} '
+            f"{result['name']:<28}"
+            + f'{result["accuracy"]:.4f} +/- {result["accuracy_std"]:.4f}   '
+            + f'{result["precision"]:.4f} +/- {result["precision_std"]:.4f}   '
+            + f'{result["recall"]:.4f} +/- {result["recall_std"]:.4f}   '
+            + f'{result["f1"]:.4f} +/- {result["f1_std"]:.4f}   '
+            + f'{result["cost"]:.1f} +/- {result["cost_std"]:.1f}'
         )
 
     print("\nCombined Confusion Matrices:")
@@ -228,10 +202,10 @@ def create_graph(results):
             capsize=3,
             label=label)
 
-    plt.xticks(list(range(len(names))), names, rotation=25, ha="right")
+    plt.xticks(list(range(len(names))), names, rotation=20, ha="right")
     plt.xlabel("Method")
     plt.ylabel("Score")
-    plt.title("Comparison of Classification Methods")
+    plt.title("Comparison of Classification Methods (NASA Landslide Catalog)")
     plt.ylim(0, 1)
     plt.legend()
     plt.tight_layout()
@@ -243,28 +217,33 @@ def run_comparison():
     projects = read_projects(CSV_PATH)
     matured_projects, _, _ = split_by_maturity(
         projects, SNAPSHOT_DATE, MATURITY_DAYS)
-    folds = create_folds(matured_projects)
+
+    # Subsample if dataset is large so from-scratch KNN completes in reasonable time
+    if len(matured_projects) > 6000:
+        random.seed(42)
+        matured_projects = random.sample(matured_projects, 6000)
+
+    folds = create_folds(matured_projects, k_folds=3)
+
+    # Point naive_bayes continuous_features to the landslide numeric columns
+    naive_bayes.continuous_features = ["latitude", "longitude", "month", "logpop"]
 
     names = [
-        "Always Finished (Baseline)",
+        "Always Non-Fatal (Baseline)",
         "Naive Bayes (validated)",
         "KNN Weighted (validated)",
         "Decision Tree (balanced)",
     ]
     fold_results = {name: [] for name in names}
 
-    print("Three chronological validation folds")
+    print("Three validation folds")
     print(
         f"Cost: FP={FALSE_POSITIVE_COST}, "
         f"FN={FALSE_NEGATIVE_COST}\n")
 
     for fold_number, (train_projects, test_projects) in enumerate(
             folds, start=1):
-        split_at = int(len(train_projects) * 0.70)
-        while (split_at < len(train_projects)
-               and train_projects[split_at]["start_date"]
-               == train_projects[split_at - 1]["start_date"]):
-            split_at += 1
+        split_at = int(len(train_projects) * 0.80)
 
         validation_data = prepare_fold(
             train_projects[:split_at],
@@ -282,7 +261,7 @@ def run_comparison():
         print(
             f"Fold {fold_number}: train={len(train_data)}, "
             f"test={len(test_data)}, "
-            f"unfinished test={sum(test_labels)}")
+            f"fatal in test={sum(test_labels)}")
         print(
             f"  Selected: cutoff={nb_cutoff}, "
             f"k={knn_k}, depth={tree_depth}")

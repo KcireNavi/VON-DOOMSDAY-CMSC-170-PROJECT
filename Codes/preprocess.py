@@ -1,4 +1,4 @@
-# Preprocessing the DPWH Infrastructure Transparency Dataset
+# Preprocessing the NASA Global Landslide Catalog Dataset
 """
     AI DECLARATION FORM
 
@@ -11,35 +11,44 @@
 import csv
 import datetime
 import math
-import re
+import os
 import sys
 import numpy as np
 
 # DEFINITION OF CONSTANTS
 
-# date the data was collected ("last updated" field from the website)
-SNAPSHOT_DATE = datetime.date(2025, 11, 29)
+# date threshold for any temporal operations
+SNAPSHOT_DATE = datetime.date(2018, 2, 15)
 
-# arbitrarily, a project needs 2 years to have a fair outcome          
-MATURITY_DAYS = 2 * 365
+# days window
+MATURITY_DAYS = 365
 
-# percent of the "matured" projects used for training; whatever is left over (0.30) becomes the test set
+# percent of data used for training (0.70); remaining (0.30) becomes test set
 TRAIN_FRACTION = 0.70       
 
-# a category must appear at least this many times in the training set to get its own column
-# rare categories are merge into one "__OTHER__" column
-MIN_COUNT_REGION = 1
-MIN_COUNT_PROVINCE = 25
+# minimum frequency for categories to get their own one-hot column
+MIN_COUNT_CATEGORY = 1
+MIN_COUNT_TRIGGER = 1
+MIN_COUNT_SIZE = 1
+MIN_COUNT_SETTING = 1
+MIN_COUNT_ACCURACY = 1
 
-# columns we need from the .csv dataset
-DATA_COLUMNS = ["category", "budget", "location", "contractor", "status" ,"startDate"]
+# columns we read from the landslide .csv dataset
+DATA_COLUMNS = [
+    "fatality_count",
+    "landslide_category",
+    "landslide_trigger",
+    "landslide_size",
+    "landslide_setting",
+    "location_accuracy",
+    "latitude",
+    "longitude",
+    "event_date",
+    "admin_division_population",
+]
 
 # text values that really mean "no value" (blank cells, Excel errors)
 MISSING_TEXT = ["", "#ref!", "#n/a", "#value!", "nan", "null", "none"]
-
-# status values that count as finished (label 0)
-# other status ("on-going", "terminated") count as not finished (label 1)
-FINISHED_STATUS_VALUES = ["completed"]
 
 OTHER_COLUMN_NAME = "__OTHER__"
 
@@ -47,98 +56,73 @@ OTHER_COLUMN_NAME = "__OTHER__"
 
 # Strip whitespaces; turn blank / error strings into None
 def clean(text):
-    text = text.lower().strip()
+    if text is None:
+        return None
+    text = str(text).lower().strip()
     if text in MISSING_TEXT:
         return None
     
     return text
 
-# Parse a number; return None is missing / not a number
+# Parse a number; return None if missing / not a number
 def to_float(text):
     if text is None:
         return None
     try:
         x = float(text)
-    except ValueError:
+    except (ValueError, TypeError):
         return None
     if math.isfinite(x):
         return x
     
     return None
 
-# Convert a date written as day/month/year to a date
+# Convert a date written as day/month/year to a date object
 def parse_date(text):
     if text is None:
         return None
 
-    possible_formats = ["%m/%d/%Y", "%Y-%m-%d"]
+    cleaned = clean(text)
+    if not cleaned:
+        return None
+
+    possible_formats = [
+        "%m/%d/%Y %I:%M:%S %p",
+        "%m/%d/%Y %H:%M",
+        "%m/%d/%Y",
+        "%Y-%m-%d",
+    ]
     for date_format in possible_formats:
         try:
-            parsed = datetime.datetime.strptime(text, date_format)
+            parsed = datetime.datetime.strptime(cleaned, date_format)
             return parsed.date()
         except ValueError:
             continue
 
-    return None
-
-# split "{'province': Laguna 2nd DEO, 'region': Region IV-A}" into two parts.
-# text is not a valid JSON (names have no qoutes), so a regular expression is used
-# returns (province, region); both are None if the text does not match
-def parse_location(text):
-    if text is None:
-        return None, None
-
-    match = re.search(r"'province':\s*(.*?),\s*'region':\s*(.*?)\}", text)
-    if match is None:
-        return None, None
-
-    province = match.group(1).strip()
-    region = match.group(2).strip()
-
-    return province, region
-
-# extract a contractor identity and a 'revoked' flag
-# the number in brackets is used as the identity. If no number is found, the upper-cased name is used
-# returns (contractor_id, revoked flag)
-def parse_contractor(text):
-    if text is None:
+    try:
+        part = cleaned.split()[0]
+        return datetime.datetime.strptime(part, "%m/%d/%Y").date()
+    except (ValueError, IndexError):
         return None
 
-    revoked_flag = 0.0
-    if "[REVOKED]" in text.upper():
-        revoked_flag = 1.0
+# Extract month (numeric 1-12) from event date
+def parse_month(text):
+    dt = parse_date(text)
+    if dt is not None:
+        return float(dt.month)
+    return None
 
-    match = re.search(r"\((?:\[[^\]]*\]\s*)?(\d+)\)\s*$", text)
-    if match is not None:
-        contractor_id = match.group(1)
-    else: 
-        contractor_id = text.upper()
-
-    return contractor_id, revoked_flag
-
-# turn multiple types into list (ex. "Bridges, Roads" -> ["Bridges", "Roads"])
-def parse_project_types(text):
-    if text is None:
-        return []
-
-    types = []
-    for type in text.split(","):
-        type = type.strip()
-        if type != "":
-            types.append(type)
-
-    return types
-
-# convert a status text to a label: 0 = finished, 1 = not finished
-def status_to_label(status):
-    if status.lower() in FINISHED_STATUS_VALUES:
-        return 0
-
-    return 1
+# Target label: 1 if fatality_count > 0, otherwise 0
+def fatality_to_label(fatality_val):
+    if fatality_val is None:
+        return None
+    if fatality_val > 0:
+        return 1
+    return 0
 
 # READING THE .CSV FILE
 
-# map each column name to the position of its first occurence
+# map each column name to the position of its first occurrence
 def find_column_positions(header):
     positions = {}
 
@@ -152,6 +136,8 @@ def find_column_positions(header):
     return positions
 
 def read_cell(row, positions, column_name):
+    if column_name not in positions:
+        return None
     position = positions[column_name]
 
     if position >= len(row):
@@ -159,16 +145,21 @@ def read_cell(row, positions, column_name):
     
     return clean(row[position])
 
-# read the .csv file and return a list of dictionaries, one per project
+# read the .csv file and return a list of dictionaries, one per landslide event
 def read_projects(path):
+    if not os.path.exists(path):
+        candidate = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "datasets", "landslides.csv")
+        if os.path.exists(candidate):
+            path = candidate
+
     projects = []
  
-    with open(path, newline="", encoding="utf-8-sig") as csv_file:
+    with open(path, newline="", encoding="utf-8-sig", errors="ignore") as csv_file:
         reader = csv.reader(csv_file)
         header = next(reader)
         positions = find_column_positions(header)
  
-        for column_name in DATA_COLUMNS:
+        for column_name in ["fatality_count"]:
             if column_name not in positions:
                 raise ValueError("Column missing from the CSV: " + column_name)
 
@@ -178,57 +169,63 @@ def read_projects(path):
             for column_name in DATA_COLUMNS:
                 raw[column_name] = read_cell(row, positions, column_name)
  
-            # Skip empty lines.
-            row_is_blank = True
-            for column_name in DATA_COLUMNS:
-                if raw[column_name] is not None:
-                    row_is_blank = False
-            if row_is_blank:
+            # Drop rows with blank / missing fatality count (target)
+            if raw["fatality_count"] is None:
                 continue
- 
-            # A project without a status has no label, so it cannot be used.
-            if raw["status"] is None:
-                continue
- 
-            # The start date is kept only for the maturity rule and the train/test split. Without it, skip the row.
-            start_date = parse_date(raw["startDate"])
-            if start_date is None:
-                continue
- 
-            province, region = parse_location(raw["location"])
-            contractor_id, revoked_flag = parse_contractor(raw["contractor"])
- 
-            # A budget of 0 (or less) is a placeholder.
-            budget = to_float(raw["budget"])
-            if budget is not None:
-                if budget <= 0:
-                    budget = None
 
-            project = {
-                "types": parse_project_types(raw["category"]),
-                "budget": budget,
-                "province": province,
-                "region": region,
-                "contractor_id": contractor_id,
-                "revoked": revoked_flag,
-                "label": status_to_label(raw["status"]),
+            fatality_val = to_float(raw["fatality_count"])
+            if fatality_val is None:
+                continue
+
+            label = fatality_to_label(fatality_val)
+
+            # Categorical features (blanks set to "unknown")
+            category = raw["landslide_category"] or "unknown"
+            trigger = raw["landslide_trigger"] or "unknown"
+            size = raw["landslide_size"] or "unknown"
+            setting = raw["landslide_setting"] or "unknown"
+            accuracy_val = raw["location_accuracy"] or "unknown"
+
+            # Numeric features
+            latitude = to_float(raw["latitude"])
+            longitude = to_float(raw["longitude"])
+            month = parse_month(raw["event_date"])
+
+            pop = to_float(raw["admin_division_population"])
+            logpop = math.log1p(max(0.0, pop)) if pop is not None else None
+
+            start_date = parse_date(raw["event_date"]) or datetime.date(2010, 1, 1)
+
+            event = {
+                "label": label,
+                "landslide_category": category,
+                "landslide_trigger": trigger,
+                "landslide_size": size,
+                "landslide_setting": setting,
+                "location_accuracy": accuracy_val,
+                "latitude": latitude,
+                "longitude": longitude,
+                "month": month,
+                "logpop": logpop,
                 "start_date": start_date,
             }
-            projects.append(project)
+            projects.append(event)
 
     return projects
 
 # HELPER FUNCTIONS
 
 def median(values):
-    sorted_values = sorted(values)
-    count = len(sorted_values)
+    valid = sorted([v for v in values if v is not None and math.isfinite(v)])
+    if not valid:
+        return 0.0
+    count = len(valid)
     middle = count // 2
  
     if count % 2 == 1:
-        return sorted_values[middle]
+        return valid[middle]
  
-    return (sorted_values[middle - 1] + sorted_values[middle]) / 2.0
+    return (valid[middle - 1] + valid[middle]) / 2.0
 
 # collect one field from every project into a list
 def collect_values(projects, field):
@@ -256,7 +253,7 @@ def count_values(values):
 # sort key for (category, count) pairs: highest count first, then A-Z
 def sort_key_count_then_name(item):
     category, count = item
-    return (-count, category)   # negative count puts big counts first when sorting ascending
+    return (-count, category)
 
 # list the categories that appear at least 'min_count' times
 def fit_vocabulary(values, min_count):
@@ -294,45 +291,21 @@ def one_hot(values, vocabulary):
  
     return matrix, column_names
 
-# multi-hot encoding; needed for projects that have multiple categories ex. "Bridges, Roads"
-def multi_hot(list_of_type_lists, vocabulary):
-    position_of = {}
-    for position in range(len(vocabulary)):
-        position_of[vocabulary[position]] = position
- 
-    matrix = np.zeros((len(list_of_type_lists), len(vocabulary)))
- 
-    for row_number in range(len(list_of_type_lists)):
-        for project_type in list_of_type_lists[row_number]:
-            if project_type in position_of:
-                matrix[row_number, position_of[project_type]] = 1.0
- 
-    return matrix
-
-# TRAIN AND TEST SPLIT BASED ON THE PROJECTS "MATURITY" 
+# TRAIN AND TEST SPLIT
 
 def get_start_date(project):
     return project["start_date"]
 
 def split_by_maturity(projects, snapshot_date, maturity_days):
-    cutoff_date = snapshot_date - datetime.timedelta(days=maturity_days)
- 
-    matured_projects = []
-    recent_projects = []
-    for project in projects:
-        if project["start_date"] <= cutoff_date:
-            matured_projects.append(project)
-        else:
-            recent_projects.append(project)
- 
-    return matured_projects, recent_projects, cutoff_date
+    # In the landslide catalog, all events are terminal/recorded outcomes
+    return list(projects), [], snapshot_date
 
 def chronological_split(projects, train_fraction):
     ordered_projects = sorted(projects, key=get_start_date)
     total = len(ordered_projects)
  
     cut = int(total * train_fraction)
-    while cut < total:
+    while cut < total and cut > 0:
         if ordered_projects[cut]["start_date"] == ordered_projects[cut - 1]["start_date"]:
             cut = cut + 1
         else:
@@ -346,100 +319,73 @@ def chronological_split(projects, train_fraction):
 # FEATURE BUILDING
 
 def fit_parameters(train_projects):
-    all_types = []
-    for project in train_projects:
-        for project_type in project["types"]:
-            all_types.append(project_type)
- 
-    # Log of every known budget; the median of these fills missing budgets.
-    log_budgets = []
-    for project in train_projects:
-        if project["budget"] is not None:
-            log_budgets.append(math.log1p(project["budget"]))
- 
     parameters = {
-        "type_vocabulary": fit_vocabulary(all_types, 1),
-        "region_vocabulary": fit_vocabulary(
-            collect_values(train_projects, "region"), MIN_COUNT_REGION),
-        "province_vocabulary": fit_vocabulary(
-            collect_values(train_projects, "province"), MIN_COUNT_PROVINCE),
-        "median_log_budget": median(log_budgets),
-        "contractor_counts": count_values(
-            collect_values(train_projects, "contractor_id")),
+        "category_vocabulary": fit_vocabulary(
+            collect_values(train_projects, "landslide_category"), MIN_COUNT_CATEGORY),
+        "trigger_vocabulary": fit_vocabulary(
+            collect_values(train_projects, "landslide_trigger"), MIN_COUNT_TRIGGER),
+        "size_vocabulary": fit_vocabulary(
+            collect_values(train_projects, "landslide_size"), MIN_COUNT_SIZE),
+        "setting_vocabulary": fit_vocabulary(
+            collect_values(train_projects, "landslide_setting"), MIN_COUNT_SETTING),
+        "accuracy_vocabulary": fit_vocabulary(
+            collect_values(train_projects, "location_accuracy"), MIN_COUNT_ACCURACY),
     }
+
+    # Numerics: compute medians for imputation, and mean/std for z-score standardization
+    for col in ["latitude", "longitude", "month", "logpop"]:
+        vals = [p[col] for p in train_projects if p[col] is not None]
+        med = median(vals)
+        parameters[col + "_median"] = med
+
+        imputed = [p[col] if p[col] is not None else med for p in train_projects]
+        mean = float(np.mean(imputed))
+        std = float(np.std(imputed))
+        parameters[col + "_mean"] = mean
+        parameters[col + "_std"] = std if std > 1e-6 else 1.0
+
     return parameters
 
-def build_features(projects, parameters, is_train):
-    log_budgets = []
-    budget_missing_flags = []
-    contractor_experience = []
-    revoked_flags = []
- 
-    for project in projects:
-        # ---- Budget: fill if missing, then take log(1 + budget). ------------
-        # Budgets range from about 10^5 to 2x10^9; the log squeezes this into a
-        # manageable range so a few huge budgets do not dominate.
-        if project["budget"] is None:
-            log_budgets.append(parameters["median_log_budget"])
-            budget_missing_flags.append(1.0)
-        else:
-            log_budgets.append(math.log1p(project["budget"]))
-            budget_missing_flags.append(0.0)
- 
-        # ---- Contractor experience. -----------------------------------------
-        # How many TRAIN projects did this contractor have? Use log(1 + count)
-        # to soften very large counts. A TRAIN row counts itself in the table,
-        # so for TRAIN rows we subtract 1; this way train and test rows are
-        # measured the same way (the number of OTHER projects seen in training).
-        count = 0
-        if project["contractor_id"] in parameters["contractor_counts"]:
-            count = parameters["contractor_counts"][project["contractor_id"]]
-        if is_train:
-            if count > 0:
-                count = count - 1
-        contractor_experience.append(math.log1p(count))
- 
-        revoked_flags.append(project["revoked"])
- 
-    # Numeric columns in a fixed order: (name, values, is_continuous).
-    numeric_columns = [
-        ("log_budget", log_budgets, True),
-        ("budget_missing", budget_missing_flags, False),
-        ("contractor_revoked", revoked_flags, False),
-        ("log_contractor_train_projects", contractor_experience, True),
-    ]
- 
+def build_features(projects, parameters, is_train=True):
+    # ---- 4 Numeric Columns (Imputed with median, Standardized Mean=0, SD=1) ---
+    continuous_columns = ["latitude", "longitude", "month", "logpop"]
+    
     feature_names = []
     continuous_positions = []
     column_arrays = []
- 
-    for position in range(len(numeric_columns)):
-        name, values, is_continuous = numeric_columns[position]
-        feature_names.append(name)
-        column_arrays.append(np.array(values, dtype=float))
-        if is_continuous:
-            continuous_positions.append(position)
- 
+
+    for pos, col in enumerate(continuous_columns):
+        med = parameters[col + "_median"]
+        mean = parameters[col + "_mean"]
+        std = parameters[col + "_std"]
+
+        col_vals = []
+        for p in projects:
+            val = p[col] if p[col] is not None else med
+            col_vals.append((val - mean) / std)
+
+        feature_names.append(col)
+        column_arrays.append(np.array(col_vals, dtype=float))
+        continuous_positions.append(pos)
+
     blocks = [np.column_stack(column_arrays)]
- 
-    # ---- Project type: multi-hot (a project may have several types). --------
-    list_of_type_lists = collect_values(projects, "types")
-    blocks.append(multi_hot(list_of_type_lists, parameters["type_vocabulary"]))
-    for project_type in parameters["type_vocabulary"]:
-        feature_names.append("type=" + project_type)
- 
-    # ---- Region and province (engineering office): one-hot. -----------------
+
+    # ---- 5 Categorical Columns (One-hot encoded) ----------------------------
     categorical_specs = [
-        ("region_vocabulary", "region", "region="),
-        ("province_vocabulary", "province", "office="),
+        ("category_vocabulary", "landslide_category", "category="),
+        ("trigger_vocabulary", "landslide_trigger", "trigger="),
+        ("size_vocabulary", "landslide_size", "size="),
+        ("setting_vocabulary", "landslide_setting", "setting="),
+        ("accuracy_vocabulary", "location_accuracy", "accuracy="),
     ]
+
     for vocabulary_key, field, prefix in categorical_specs:
         block, column_names = one_hot(
             collect_values(projects, field), parameters[vocabulary_key])
         blocks.append(block)
         for column_name in column_names:
             feature_names.append(prefix + column_name)
- 
+
     matrix = np.hstack(blocks)
     return matrix, feature_names, continuous_positions
 
@@ -448,64 +394,31 @@ def build_features(projects, parameters, is_train):
 def preprocess(path):
     projects = read_projects(path)
  
-    # ---- Keep only projects that had a fair two years to finish. ------------
     matured_projects, recent_projects, cutoff_date = split_by_maturity(
         projects, SNAPSHOT_DATE, MATURITY_DAYS)
  
-    # ---- Train / test split by date (older = train, newer = test). -----------
     train_projects, test_projects = chronological_split(
         matured_projects, TRAIN_FRACTION)
  
-    print("Snapshot %s | cutoff %s | matured %d | recent %d" % (
-        SNAPSHOT_DATE, cutoff_date, len(matured_projects), len(recent_projects)))
-    print("Train: %s to %s | Test: %s to %s" % (
-        train_projects[0]["start_date"], train_projects[-1]["start_date"],
-        test_projects[0]["start_date"], test_projects[-1]["start_date"]))
+    print("Total events: %d | Train: %d | Test: %d" % (
+        len(matured_projects), len(train_projects), len(test_projects)))
  
-    # ---- Learn on TRAIN only, then apply the same recipe to every split. ----
+    # Learn on TRAIN only, then apply parameters
     parameters = fit_parameters(train_projects)
  
     X_train, feature_names, continuous_positions = build_features(
         train_projects, parameters, is_train=True)
     X_test, _, _ = build_features(
         test_projects, parameters, is_train=False)
-    X_recent, _, _ = build_features(
-        recent_projects, parameters, is_train=False)
  
-    # ---- Standardize continuous columns (z-score). --------------------------
-    #   mean = (1/n) * sum(x)
-    #   std  = sqrt( (1/n) * sum((x - mean)^2) )
-    #   z    = (x - mean) / std
-    # Mean and std come from TRAIN only. After this, each continuous TRAIN
-    # column has mean 0 and std 1, so no column dominates distance-based
-    # methods such as KNN just because its numbers are larger.
-    train_continuous = X_train[:, continuous_positions]
-    column_means = np.sum(train_continuous, axis=0) / train_continuous.shape[0]
-    squared_differences = (train_continuous - column_means) ** 2
-    column_stds = np.sqrt(np.sum(squared_differences, axis=0) / train_continuous.shape[0])
- 
-    # A column that never changes has std 0; use 1 so we never divide by zero.
-    for position in range(len(column_stds)):
-        if column_stds[position] == 0.0:
-            column_stds[position] = 1.0
- 
-    split_matrices = [X_train, X_test, X_recent]
-    for matrix in split_matrices:
-        matrix[:, continuous_positions] = (
-            (matrix[:, continuous_positions] - column_means) / column_stds)
- 
-    # ---- Labels: 0 = finished, 1 = not finished. ----------------------------
     train_labels = collect_values(train_projects, "label")
     test_labels = collect_values(test_projects, "label")
-    recent_labels = collect_values(recent_projects, "label")
  
     result = {
         "X_train": X_train,
         "X_test": X_test,
-        "X_recent": X_recent,
         "y_train": np.array(train_labels),
         "y_test": np.array(test_labels),
-        "y_recent": np.array(recent_labels),
         "feature_names": np.array(feature_names),
     }
     return result
@@ -514,19 +427,12 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         csv_path = sys.argv[1]
     else:
-        csv_path = "../datasets/edited_dataset.csv"
+        csv_path = "../datasets/landslides.csv"
 
     data = preprocess(csv_path)
-    with open("train_features.csv", "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(list(data["feature_names"]) + ["label"])
-        for row, label in zip(data["X_train"], data["y_train"]):
-            writer.writerow(list(row) + [label])
-
     for key in data:
         print("%-14s %s" % (key, data[key].shape))
 
-    print("Unfinished projects: train %.1f%% | test %.1f%% | recent %.1f%%" % (
+    print("Fatal events: train %.1f%% | test %.1f%%" % (
         100.0 * np.sum(data["y_train"]) / len(data["y_train"]),
-        100.0 * np.sum(data["y_test"]) / len(data["y_test"]),
-        100.0 * np.sum(data["y_recent"]) / len(data["y_recent"])))
+        100.0 * np.sum(data["y_test"]) / len(data["y_test"])))

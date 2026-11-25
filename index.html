@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Predicting Landslides: A Machine Learning Comparison</title>
+<link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Predicting which landslides are fatal</h1>
+    <p><b>Group name</b></p>
+    <p>Member 1 · Member 2 · Member 3 · Member 4</p>
+    <p>Course · Term, Year</p>
+    <div class="links"><a class="main" href="#repository">Repository</a><a href="#repository">Slides</a></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <h2>Problem statement and motivation</h2>
+  <p>Describe the task in one sentence: predict whether a landslide event is fatal from its category, trigger, size, setting, location and date. Then explain why it matters: lives, homes, roads and early warning for communities.</p>
+
+  <h2>Dataset</h2>
+  <div class="info">
+    <p><b>Source:</b> agency or portal, link, access date.</p>
+    <p><b>Size:</b> 9,648 events after dropping rows with a blank <code>fatality_count</code>.</p>
+    <p><b>Target:</b> <code>fatal</code> = 1 if <code>fatality_count</code> &gt; 0, otherwise 0.</p>
+    <p><b>Features:</b> 9 in total: <code>landslide_category</code>, <code>landslide_trigger</code>, <code>landslide_size</code>, <code>landslide_setting</code>, <code>location_accuracy</code>, <code>latitude</code>, <code>longitude</code>, <code>month</code>, <code>logpop</code>.</p>
+  </div>
+  <p>The full dataset is too large to show here. <a href="#">Open the full dataset</a>.</p>
+  <h3>Preprocessing</h3>
+  <p>Rows with a blank <code>fatality_count</code> were dropped. Blank categorical values were set to “unknown” and one-hot encoded. Blank numeric values were filled with the median, and all numeric features were standardized. All done with the csv module and NumPy.</p>
+
+  <h2>Methods</h2>
+  <p class="muted">All three methods are implemented from scratch with Python and NumPy.</p>
+  <div class="cards">
+    <div class="card"><h3>Naive Bayes</h3>
+      <p><b>How it works and how we implemented it:</b> short explanation.</p>
+      <p class="why"><b>Why we chose it:</b> a fast probabilistic method that works well with the one-hot encoded categorical features such as landslide category, trigger and size.</p></div>
+    <div class="card"><h3>k-nearest neighbors</h3>
+      <p><b>How it works and how we implemented it:</b> short explanation.</p>
+      <p class="why"><b>Why we chose it:</b> it makes no assumptions about the data and tests whether landslides with similar characteristics and nearby locations tend to share the same outcome.</p></div>
+    <div class="card"><h3>Decision tree</h3>
+      <p><b>How it works and how we implemented it:</b> short explanation.</p>
+      <p class="why"><b>Why we chose it:</b> it captures combinations of features, such as a large landslide in a populated area, and its rules are easy to read.</p></div>
+  </div>
+
+  <h2>Experimental setup</h2>
+  <ul>
+    <li><b>Data splits:</b> ratio, stratification, random seed.</li>
+    <li><b>Metrics:</b> accuracy, precision, recall, F1 (implemented from scratch). Recall matters because a missed fatal landslide is costly.</li>
+    <li><b>Hyperparameters:</b> list per method and how they were chosen.</li>
+  </ul>
+
+  <h2>Results</h2>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Method</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th></tr></thead>
+    <tbody>
+      <tr><td>Majority baseline</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>Naive Bayes</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>k-nearest neighbors</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>Decision tree</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h3>Results per method</h3>
+  <div class="grid3">
+    <figure><div class="fig">Graph 1: Naive Bayes</div><figcaption>For example, confusion matrix.</figcaption></figure>
+    <figure><div class="fig">Graph 2: k-nearest neighbors</div><figcaption>For example, accuracy across values of k.</figcaption></figure>
+    <figure><div class="fig">Graph 3: Decision tree</div><figcaption>For example, accuracy across tree depths.</figcaption></figure>
+  </div>
+  <h3>Comparison of all methods</h3>
+  <figure><div class="fig">Graph 4: All methods compared (accuracy, precision, recall, F1)</div><figcaption>Grouped bar chart including the majority baseline.</figcaption></figure>
+
+  <h2>Discussion</h2>
+  <div class="cards">
+    <div class="card"><h3>Why the methods performed as they did</h3><p>Explain the results for each method.</p></div>
+    <div class="card"><h3>Limitations</h3><p>What could not be tested or may bias the results.</p></div>
+    <div class="card"><h3>Possible improvements</h3><p>What you would try next.</p></div>
+  </div>
+
+  <h2>Conclusion</h2>
+  <p>Which method worked best and the main takeaway.</p>
+
+  <h2>References</h2>
+  <ol>
+    <li>Dataset source.</li>
+    <li>Textbook or paper for each method.</li>
+  </ol>
+  <p class="note"><b>Code and AI disclosure:</b> list any copied or AI-generated code and AI tools used, what for, and what you checked yourselves.</p>
+
+  <h2 id="repository">Repository and slides</h2>
+  <ul>
+    <li><a href="#">Code repository</a></li>
+    <li><a href="#">Presentation slides</a></li>
+  </ul>
+</main>
+
+<footer><div class="wrap">Group name · Course · Term, Year</div></footer>
+</body>
+</html>
