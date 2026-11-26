@@ -2,15 +2,13 @@
 # GEMINI 3 PRO
 # Used Gemini 3 Pro in this script where it helped in
 # implementing the hardest parts like the Lazy Guesser baseline
-# and the class-weighted KNN workaround, specifically formulating 
-# the vote weight of ~55.5 for the minority class to counter the 
-# massive difference between the number of "finished" (class 0) and "unfinished" (class 1) projects.
+# and the class-weighted KNN workaround.
 
 import numpy as np
 from preprocess import preprocess
 from splitting import accuracy, countmetrics
 
-csv_path = "../datasets/edited_dataset.csv"
+csv_path = "../datasets/landslides.csv"
 k_values = [1, 3, 5, 7, 11, 15] # k values given for observation
 p = 2 # Minkowski distance parameter (p = 2 is Euclidean distance)
 
@@ -109,12 +107,12 @@ def main():
         if label == 1:
             test_unfinished = test_unfinished + 1
 
-    print("Projects used: " + str(len(train_data) + len(test_data)))
+    print("Number of events used: " + str(len(train_data) + len(test_data)))
     print("Train: " + str(len(train_data)) + " Test: " + str(len(test_data)))
-    print("Train Finished: " + str(class_counts[0]) + " Unfinished: " + str(class_counts[1]))
-    print("Test Unfinished: " + str(test_unfinished) + "\n")
+    print("Train Non-Fatal: " + str(class_counts[0]) + " Fatal: " + str(class_counts[1]))
+    print("Test Fatal: " + str(test_unfinished) + "\n")
 
-    # Lazy Guesser baseline (same as in naive_bayes.py: always guesses 0 = finished)
+    # Lazy Guesser baseline (same as in naive_bayes.py: always guesses 0 = non-fatal)
     lazy_guesser_labels = []
     for i in range(len(test_labels)):
         lazy_guesser_labels.append(0)
@@ -126,7 +124,7 @@ def main():
     lazy_guesser_fn = lazy_guesser_confusion[1][0]
     lazy_guesser_tp = lazy_guesser_confusion[1][1]
 
-    print("Lazy Guesser (always finished)")
+    print("Lazy Guesser (always non-fatal)")
     print("TP: " + str(lazy_guesser_tp) + " TN: " + str(lazy_guesser_tn) + " FP: " + str(lazy_guesser_fp) + " FN: " + str(lazy_guesser_fn))
     print("Accuracy: " + str(accuracy(test_labels, lazy_guesser_labels)))
     print("Precision: " + str(lazy_guesser_precision))

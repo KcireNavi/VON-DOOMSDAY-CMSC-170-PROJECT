@@ -12,12 +12,12 @@
 from preprocess import preprocess
 from splitting import accuracy, countmetrics
 
-csv_path = "../datasets/edited_dataset.csv"
+csv_path = "../datasets/landslides.csv"
 k = [2.0, 1.0, 0.5, 0.1, 0.005] # k values given for observation
 
 threshold = 0.5
 bin_num = 10        # number of categories to split the budgets into
-continuous_features = ["log_budget", "log_contractor_train_projects"] # the only columns that are not 0 or 1, so the only ones that get binned
+continuous_features = ["latitude", "longitude", "month", "logpop"] # the only columns that are not 0 or 1, so the only ones that get binned
 
 
 def computeBinEdges(values, bins): # calculates the cutoff points per bin (edges) from the train projects
@@ -178,10 +178,10 @@ def main():
         if label == 1:
             test_unfinished = test_unfinished + 1
  
-    print("Projects used: " + str(len(X_train) + len(X_test)))
+    print("Number of events used: " + str(len(X_train) + len(X_test)))
     print("Train: " + str(len(X_train)) + " Test: " + str(len(X_test)))
-    print("Train Finished: " + str(class_counts[0]) + " Unfinished: " + str(class_counts[1]))
-    print("Test Unfinished: " + str(test_unfinished) + "\n")
+    print("Train Non-Fatal: " + str(class_counts[0]) + " Fatal: " + str(class_counts[1]))
+    print("Test Fatal: " + str(test_unfinished) + "\n")
  
     lazy_guesser_labels = []
  
@@ -195,7 +195,7 @@ def main():
     lazy_guesser_fn = lazy_guesser_confusion[1][0]
     lazy_guesser_tp = lazy_guesser_confusion[1][1]
  
-    print("Lazy Guesser (always finished)")
+    print("Lazy Guesser (always non-fatal)")
     print("TP: " + str(lazy_guesser_tp) + " TN: " + str(lazy_guesser_tn) + " FP: " + str(lazy_guesser_fp) + " FN: " + str(lazy_guesser_fn))
     print("Accuracy: " + str(accuracy(test_labels, lazy_guesser_labels)))
     print("Precision: " + str(lazy_guesser_precision))

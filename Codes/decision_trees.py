@@ -11,10 +11,10 @@ from preprocess import preprocess
 from splitting import accuracy, countmetrics
 
 
-csv_path = "../datasets/edited_dataset.csv"
+csv_path = "../datasets/landslides.csv"
 
 
-# Measures how mixed the finished and unfinished projects are.
+# Measures how mixed the fatal and non-fatal projects are.
 def gini(labels):
     if len(labels) == 0:
         return 0.0
@@ -256,7 +256,7 @@ def main():
     lazy_fn = lazy_confusion[1][0]
     lazy_tp = lazy_confusion[1][1]
 
-    print("Lazy Guesser (always finished)")
+    print("Lazy Guesser (always non-fatal)")
     print(
         "TP:", lazy_tp,
         "TN:", lazy_tn,
@@ -302,5 +302,5 @@ def main():
     print("\nTree:")
     print_tree(tree, feature_names)
 
-
-main()
+if __name__ == "__main__":
+    main()
