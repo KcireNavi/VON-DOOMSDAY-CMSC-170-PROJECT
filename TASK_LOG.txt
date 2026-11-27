@@ -2,22 +2,22 @@ Abonal:
 Milestone 1: Initiatied Requirements
 Milestone 2: Time Splitting
 Milestone 3: Decision Tree Implementation added Graphs
-Milestone 4: Fixed problems in milestone 3's fairness in compare.py
+Milestone 4: Fixed problems in milestone 3's fairness in compare.py, helped in PPT
 
 Madelo:
 Milestone 1: Shared ideas in methods like KNN 
 Milestone 2: K-nearest neighbors method
 Milestone 3: Comparison
-Milestone 4: Fixed problems in milestone 3
+Milestone 4: Fixed problems in milestone 3, Created and designed slides
 
 Manuel:
 Milestone 1: Shared ideas regarding which dataset to choose and what methods to implement
 Milestone 2: Naive Bayes
 Milestone 3: Fixed the low number of unfinished projects in the training split. Raised concerns regarding fairness across all methods and proposed a solution that has yet to implemented
-Milestone 4: Fixed problems in milestone 3
+Milestone 4: Fixed problems in milestone 3, cleaned deadcode
 
 Noble:
 Milestone 1: Suggested the dataset currently being used; Provided insights on what methods to use.
 Milestone 2: Data loading and Preprocessing Code; Identified errors on the initial plan, proposed and laid out the route of the project.
 Milestone 3: Helped fixing the train/test split; minor changes on the comparison graphs
-Milestone 4: Fixed problems in milestone 3
+Milestone 4: Fixed problems in milestone 3, Cleaned up website
