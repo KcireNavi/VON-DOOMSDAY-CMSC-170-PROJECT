@@ -16,7 +16,7 @@ csv_path = "../datasets/landslides.csv"
 k = [2.0, 1.0, 0.5, 0.1, 0.005] # k values given for observation
 
 threshold = 0.5
-bin_num = 10        # number of categories to split the budgets into
+bin_num = 10        # number of categories to split each numeric column into
 continuous_features = ["latitude", "longitude", "month", "logpop"] # the only columns that are not 0 or 1, so the only ones that get binned
 
 
@@ -31,11 +31,11 @@ def computeBinEdges(values, bins): # calculates the cutoff points per bin (edges
     return edges
 
 
-def getBin(budget, edges): # finds the exact bin where a budget would fall into
+def getBin(value, edges): # finds the exact bin where a value would fall into
     bin_number = 0
 
     for edge in edges:
-        if budget >= edge:
+        if value >= edge:
             bin_number = bin_number + 1
 
     return "bin" + str(bin_number)
@@ -55,8 +55,8 @@ def rowToBinnedFeatures(row, feature_names, edges): # turns a row of numbers int
     return categories
 
 
-def computeCounts(X_train, train_labels, feature_names, edges): # counts the projects per class and how often every feature value appeared per class (somewhat similar to exer 4 bag of words but just slightly more complicated)
-    class_counts = {0: 0, 1:0} # stores amount of finished and unfinished train projects(0 = finished  1 = unfinished)
+def computeCounts(X_train, train_labels, feature_names, edges): # counts the events per class and how often every feature value appeared per class (somewhat similar to exer 4 bag of words but just slightly more complicated)
+    class_counts = {0: 0, 1:0} # stores amount of fatal and non-fatal train events(0 = non-fatal  1 = fatal)
     value_counts = {0: {}, 1: {}} # stores the amount of times that value of the feature from that class appeared
     values_seen = {} # stores all specific values found throughout both classes for every feature
 
@@ -110,27 +110,27 @@ def computeLikelihood(categories, label, class_counts, value_counts, values_seen
     return likelihood
 
 
-def computeUnfinishedProb(categories, class_counts, value_counts, values_seen, k_val): # (similar structure as computeSpamProbOverMsg in exer 4)
+def computeFatalProb(categories, class_counts, value_counts, values_seen, k_val): # (similar structure as computeSpamProbOverMsg in exer 4)
     total = class_counts[0] + class_counts[1]
-    unfinished_prob = class_counts[1] / total # P(Unfinished)
-    finished_prob = class_counts[0] / total # P(Finished)
+    fatal_prob = class_counts[1] / total # P(fatal)
+    non_fatal_prob = class_counts[0] / total # P(non-fatal)
 
-    unfinished_likelihood = computeLikelihood(categories, 1, class_counts, value_counts, values_seen, k_val)
-    finished_likelihood = computeLikelihood(categories, 0, class_counts, value_counts, values_seen, k_val)
+    fatal_likelihood = computeLikelihood(categories, 1, class_counts, value_counts, values_seen, k_val)
+    non_fatal_likelihood = computeLikelihood(categories, 0, class_counts, value_counts, values_seen, k_val)
 
-    # P(project) = P(project | Uninished) P(Unfinished) + P(project |Finished) P(Finished)
-    project_prob = unfinished_likelihood * unfinished_prob + finished_likelihood * finished_prob
+    # P(event) = P(event | fatal) P(fatal) + P(event | non-fatal) P(non-fatal)
+    event_prob = fatal_likelihood * fatal_prob   + non_fatal_likelihood * non_fatal_prob
 
-    return (unfinished_likelihood * unfinished_prob) / project_prob
+    return (fatal_likelihood * fatal_prob) / event_prob
 
 
-def classify(X_test, feature_names, edges, class_counts, value_counts, values_seen, k_val, cutoff): # classifies if unfinished or finished and the prob for every test project
+def classify(X_test, feature_names, edges, class_counts, value_counts, values_seen, k_val, cutoff): # classifies if fatal or non-fatal and the prob for every test event
     labels = []
     probabilities = []
 
-    for project in X_test:
-        categories = rowToBinnedFeatures(project, feature_names, edges)
-        prob = computeUnfinishedProb(categories, class_counts, value_counts, values_seen, k_val)
+    for event in X_test:
+        categories = rowToBinnedFeatures(event, feature_names, edges)
+        prob = computeFatalProb(categories, class_counts, value_counts, values_seen, k_val)
 
         if prob < cutoff:
             labels.append(0)
@@ -173,15 +173,15 @@ def main():
  
     class_counts, value_counts, values_seen = computeCounts(X_train, train_labels, feature_names, edges)
  
-    test_unfinished = 0
+    test_fatal = 0
     for label in test_labels:
         if label == 1:
-            test_unfinished = test_unfinished + 1
+            test_fatal = test_fatal + 1
  
     print("Number of events used: " + str(len(X_train) + len(X_test)))
     print("Train: " + str(len(X_train)) + " Test: " + str(len(X_test)))
     print("Train Non-Fatal: " + str(class_counts[0]) + " Fatal: " + str(class_counts[1]))
-    print("Test Fatal: " + str(test_unfinished) + "\n")
+    print("Test Fatal: " + str(test_fatal) + "\n")
  
     lazy_guesser_labels = []
  

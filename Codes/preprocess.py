@@ -17,12 +17,6 @@ import numpy as np
 
 # DEFINITION OF CONSTANTS
 
-# date threshold for any temporal operations
-SNAPSHOT_DATE = datetime.date(2018, 2, 15)
-
-# days window
-MATURITY_DAYS = 365
-
 # percent of data used for training (0.70); remaining (0.30) becomes test set
 TRAIN_FRACTION = 0.70       
 
@@ -77,7 +71,7 @@ def to_float(text):
     
     return None
 
-# Convert a date written as day/month/year to a date object
+# Convert a date written as month/day/year (or year-month-day) to a date object
 def parse_date(text):
     if text is None:
         return None
@@ -146,13 +140,13 @@ def read_cell(row, positions, column_name):
     return clean(row[position])
 
 # read the .csv file and return a list of dictionaries, one per landslide event
-def read_projects(path):
+def read_events(path):
     if not os.path.exists(path):
         candidate = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "datasets", "landslides.csv")
         if os.path.exists(candidate):
             path = candidate
 
-    projects = []
+    events = []
  
     with open(path, newline="", encoding="utf-8-sig", errors="ignore") as csv_file:
         reader = csv.reader(csv_file)
@@ -194,7 +188,7 @@ def read_projects(path):
             pop = to_float(raw["admin_division_population"])
             logpop = math.log1p(max(0.0, pop)) if pop is not None else None
 
-            start_date = parse_date(raw["event_date"]) or datetime.date(2010, 1, 1)
+            event_date = parse_date(raw["event_date"]) or datetime.date(2010, 1, 1)
 
             event = {
                 "label": label,
@@ -207,11 +201,11 @@ def read_projects(path):
                 "longitude": longitude,
                 "month": month,
                 "logpop": logpop,
-                "start_date": start_date,
+                "event_date": event_date,
             }
-            projects.append(event)
+            events.append(event)
 
-    return projects
+    return events
 
 # HELPER FUNCTIONS
 
@@ -227,12 +221,12 @@ def median(values):
  
     return (valid[middle - 1] + valid[middle]) / 2.0
 
-# collect one field from every project into a list
-def collect_values(projects, field):
+# collect one field from every event into a list
+def collect_values(events, field):
     values = []
  
-    for project in projects:
-        values.append(project[field])
+    for event in events:
+        values.append(event[field])
  
     return values
 
@@ -293,52 +287,48 @@ def one_hot(values, vocabulary):
 
 # TRAIN AND TEST SPLIT
 
-def get_start_date(project):
-    return project["start_date"]
+def get_event_date(event):
+    return event["event_date"]
 
-def split_by_maturity(projects, snapshot_date, maturity_days):
-    # In the landslide catalog, all events are terminal/recorded outcomes
-    return list(projects), [], snapshot_date
-
-def chronological_split(projects, train_fraction):
-    ordered_projects = sorted(projects, key=get_start_date)
-    total = len(ordered_projects)
+def chronological_split(events, train_fraction):
+    ordered_events = sorted(events, key=get_event_date)
+    total = len(ordered_events)
  
     cut = int(total * train_fraction)
     while cut < total and cut > 0:
-        if ordered_projects[cut]["start_date"] == ordered_projects[cut - 1]["start_date"]:
+        if ordered_events[cut]["event_date"] == ordered_events[cut - 1]["event_date"]:
             cut = cut + 1
         else:
             break
  
-    train_projects = ordered_projects[:cut]
-    test_projects = ordered_projects[cut:]
+    train_events = ordered_events[:cut]
+    test_events = ordered_events[cut:]
 
-    return train_projects, test_projects
+    return train_events, test_events
 
 # FEATURE BUILDING
 
-def fit_parameters(train_projects):
+def fit_parameters(train_events):
     parameters = {
         "category_vocabulary": fit_vocabulary(
-            collect_values(train_projects, "landslide_category"), MIN_COUNT_CATEGORY),
+            collect_values(train_events, "landslide_category"), MIN_COUNT_CATEGORY),
         "trigger_vocabulary": fit_vocabulary(
-            collect_values(train_projects, "landslide_trigger"), MIN_COUNT_TRIGGER),
+            collect_values(train_events, "landslide_trigger"), MIN_COUNT_TRIGGER),
         "size_vocabulary": fit_vocabulary(
-            collect_values(train_projects, "landslide_size"), MIN_COUNT_SIZE),
+            collect_values(train_events, "landslide_size"), MIN_COUNT_SIZE),
         "setting_vocabulary": fit_vocabulary(
-            collect_values(train_projects, "landslide_setting"), MIN_COUNT_SETTING),
+            collect_values(train_events, "landslide_setting"), MIN_COUNT_SETTING),
         "accuracy_vocabulary": fit_vocabulary(
-            collect_values(train_projects, "location_accuracy"), MIN_COUNT_ACCURACY),
+            collect_values(train_events, "location_accuracy"), MIN_COUNT_ACCURACY),
     }
 
     # Numerics: compute medians for imputation, and mean/std for z-score standardization
     for col in ["latitude", "longitude", "month", "logpop"]:
-        vals = [p[col] for p in train_projects if p[col] is not None]
+        vals = [p[col] for p in train_events if p[col] is not None]
         med = median(vals)
         parameters[col + "_median"] = med
 
-        imputed = [p[col] if p[col] is not None else med for p in train_projects]
+        imputed = [p[col] if p[col] is not None else med for p in train_events]
         mean = float(np.mean(imputed))
         std = float(np.std(imputed))
         parameters[col + "_mean"] = mean
@@ -346,7 +336,7 @@ def fit_parameters(train_projects):
 
     return parameters
 
-def build_features(projects, parameters, is_train=True):
+def build_features(events, parameters, is_train=True):
     # ---- 4 Numeric Columns (Imputed with median, Standardized Mean=0, SD=1) ---
     continuous_columns = ["latitude", "longitude", "month", "logpop"]
     
@@ -360,7 +350,7 @@ def build_features(projects, parameters, is_train=True):
         std = parameters[col + "_std"]
 
         col_vals = []
-        for p in projects:
+        for p in events:
             val = p[col] if p[col] is not None else med
             col_vals.append((val - mean) / std)
 
@@ -381,7 +371,7 @@ def build_features(projects, parameters, is_train=True):
 
     for vocabulary_key, field, prefix in categorical_specs:
         block, column_names = one_hot(
-            collect_values(projects, field), parameters[vocabulary_key])
+            collect_values(events, field), parameters[vocabulary_key])
         blocks.append(block)
         for column_name in column_names:
             feature_names.append(prefix + column_name)
@@ -392,27 +382,24 @@ def build_features(projects, parameters, is_train=True):
 # MAIN
 
 def preprocess(path):
-    projects = read_projects(path)
+    events = read_events(path)
  
-    matured_projects, recent_projects, cutoff_date = split_by_maturity(
-        projects, SNAPSHOT_DATE, MATURITY_DAYS)
- 
-    train_projects, test_projects = chronological_split(
-        matured_projects, TRAIN_FRACTION)
+    train_events, test_events = chronological_split(
+        events, TRAIN_FRACTION)
  
     print("Total events: %d | Train: %d | Test: %d" % (
-        len(matured_projects), len(train_projects), len(test_projects)))
+        len(events), len(train_events), len(test_events)))
  
     # Learn on TRAIN only, then apply parameters
-    parameters = fit_parameters(train_projects)
+    parameters = fit_parameters(train_events)
  
     X_train, feature_names, continuous_positions = build_features(
-        train_projects, parameters, is_train=True)
+        train_events, parameters, is_train=True)
     X_test, _, _ = build_features(
-        test_projects, parameters, is_train=False)
+        test_events, parameters, is_train=False)
  
-    train_labels = collect_values(train_projects, "label")
-    test_labels = collect_values(test_projects, "label")
+    train_labels = collect_values(train_events, "label")
+    test_labels = collect_values(test_events, "label")
  
     result = {
         "X_train": X_train,

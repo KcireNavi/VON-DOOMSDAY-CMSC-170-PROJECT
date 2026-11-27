@@ -10,10 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from preprocess import (
-    read_projects,
-    split_by_maturity,
-    SNAPSHOT_DATE,
-    MATURITY_DAYS,
+    read_events,
     fit_parameters,
     build_features,
 )
@@ -50,9 +47,9 @@ INTERPRETATIONS = [
 
 
 # Creates validation folds (uses its own random generator, so global state is untouched).
-def create_folds(projects, k_folds=3, seed=SEED):
+def create_folds(events, k_folds=3, seed=SEED):
     rng = random.Random(seed)
-    shuffled = list(projects)
+    shuffled = list(events)
     rng.shuffle(shuffled)
 
     fold_size = len(shuffled) // k_folds
@@ -68,16 +65,16 @@ def create_folds(projects, k_folds=3, seed=SEED):
 
 
 # Builds features for one fold.
-def prepare_fold(train_projects, test_projects):
-    parameters = fit_parameters(train_projects)
+def prepare_fold(train_events, test_events):
+    parameters = fit_parameters(train_events)
 
     train_features, feature_names, _ = build_features(
-        train_projects, parameters, is_train=True)
+        train_events, parameters, is_train=True)
     test_features, _, _ = build_features(
-        test_projects, parameters, is_train=False)
+        test_events, parameters, is_train=False)
 
-    train_labels = np.array([project["label"] for project in train_projects])
-    test_labels = np.array([project["label"] for project in test_projects])
+    train_labels = np.array([event["label"] for event in train_events])
+    test_labels = np.array([event["label"] for event in test_events])
 
     return train_features, test_features, train_labels, test_labels, feature_names
 
@@ -263,16 +260,14 @@ def create_graph(results):
 
 # Runs every method on all folds and combines the results.
 def run_comparison():
-    projects = read_projects(CSV_PATH)
-    matured_projects, _, _ = split_by_maturity(
-        projects, SNAPSHOT_DATE, MATURITY_DAYS)
+    events = read_events(CSV_PATH)
 
-    if len(matured_projects) > MAX_EVENTS:
-        matured_projects = random.Random(SEED).sample(matured_projects, MAX_EVENTS)
+    if len(events) > MAX_EVENTS:
+        events = random.Random(SEED).sample(events, MAX_EVENTS)
 
-    folds = create_folds(matured_projects, k_folds=3)
+    folds = create_folds(events, k_folds=3)
 
-    # Naive Bayes must bin the landslide numeric columns, not the old budget columns
+    # Naive Bayes must bin the landslide numeric columns (latitude, longitude, month, logpop)
     naive_bayes.continuous_features = ["latitude", "longitude", "month", "logpop"]
 
     names = [
@@ -283,15 +278,15 @@ def run_comparison():
     ]
     fold_results = {name: [] for name in names}
 
-    print(f"Events used: {len(matured_projects)} | 3-fold cross-validation | positive class = fatal")
+    print(f"Events used: {len(events)} | 3-fold cross-validation | positive class = fatal")
     print(f"Cost: FP = {FALSE_POSITIVE_COST}, FN = {FALSE_NEGATIVE_COST}\n")
 
-    for fold_number, (train_projects, test_projects) in enumerate(folds, start=1):
+    for fold_number, (train_events, test_events) in enumerate(folds, start=1):
         # Settings are chosen on an inner validation split of the training part only
-        split_at = int(len(train_projects) * 0.80)
+        split_at = int(len(train_events) * 0.80)
         validation_data = prepare_fold(
-            train_projects[:split_at],
-            train_projects[split_at:])
+            train_events[:split_at],
+            train_events[split_at:])
         nb_cutoff, knn_k, tree_depth = choose_settings(
             validation_data[0],
             validation_data[2],
@@ -300,7 +295,7 @@ def run_comparison():
             validation_data[4])
 
         train_data, test_data, train_labels, test_labels, feature_names = (
-            prepare_fold(train_projects, test_projects))
+            prepare_fold(train_events, test_events))
 
         print(
             f"Fold {fold_number}: train={len(train_data)}, test={len(test_data)}, "

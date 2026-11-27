@@ -13,7 +13,7 @@ k_values = [1, 3, 5, 7, 11, 15] # k values given for observation
 p = 2 # Minkowski distance parameter (p = 2 is Euclidean distance)
 
 
-# counts the amount of finished (0) and unfinished (1) projects in the training set
+# counts the amount of non-fatal (0) and fatal (1) events in the training set
 def computeClassCounts(train_labels):
     class_counts = {0: 0, 1: 0}
 
@@ -23,7 +23,7 @@ def computeClassCounts(train_labels):
     return class_counts
 
 
-# measures the Minkowski distance from one test project to every training project
+# measures the Minkowski distance from one test event to every training event
 # returns a list of (distance, label) pairs sorted from nearest to farthest
 def getSortedDistances(point, train_data, train_labels, p):
     # Minkowski formula: ( sum( |a - b|^p ) ) ^ (1/p)
@@ -38,36 +38,36 @@ def getSortedDistances(point, train_data, train_labels, p):
     return distances
 
 
-# predicts if a project is unfinished (1) or finished (0) using the k nearest neighbors
-# (same voting logic as Exercise 06, with an optional weight for the rare unfinished class)
-def predict(sorted_distances, k, unfinished_weight):
-    # keep only the k nearest training projects
+# predicts if an event is fatal (1) or non-fatal (0) using the k nearest neighbors
+# (same voting logic as Exercise 06, with an optional weight for the rarer fatal class)
+def predict(sorted_distances, k, fatal_weight):
+    # keep only the k nearest training events
     nearest = sorted_distances[:k]
 
-    # each nearest project votes for its own label
-    unfinished_votes = 0
-    finished_votes = 0
+    # each nearest event votes for its own label
+    fatal_votes = 0
+    non_fatal_votes = 0
     for n in nearest:
         if n[1] == 1:
-            unfinished_votes = unfinished_votes + unfinished_weight
+            fatal_votes = fatal_votes + fatal_weight
         else:
-            finished_votes = finished_votes + 1
+            non_fatal_votes = non_fatal_votes + 1
 
     # the label with more votes wins
-    if unfinished_votes > finished_votes:
+    if fatal_votes > non_fatal_votes:
         return 1
-    elif finished_votes > unfinished_votes:
+    elif non_fatal_votes > fatal_votes:
         return 0
     else:
-        return nearest[0][1] # if tied, use the label of the closest project
+        return nearest[0][1] # if tied, use the label of the closest event
 
 
-# classifies all test projects for a given k and unfinished_weight
-def classify(all_sorted_distances, k, unfinished_weight):
+# classifies all test events for a given k and fatal_weight
+def classify(all_sorted_distances, k, fatal_weight):
     predictions = []
 
     for i in range(len(all_sorted_distances)):
-        prediction = predict(all_sorted_distances[i], k, unfinished_weight)
+        prediction = predict(all_sorted_distances[i], k, fatal_weight)
         predictions.append(prediction)
 
     return predictions
@@ -79,16 +79,16 @@ def run_knn(train_data, train_labels, test_data, k=15, p_val=2, weighted=True):
     class_counts = computeClassCounts(train_labels_list)
 
     if weighted:
-        unfinished_weight = class_counts[0] / class_counts[1]
+        fatal_weight = class_counts[0] / class_counts[1]
     else:
-        unfinished_weight = 1
+        fatal_weight = 1
 
     all_sorted_distances = []
     for i in range(len(test_data)):
         sorted_distances = getSortedDistances(test_data[i], train_data, train_labels_list, p_val)
         all_sorted_distances.append(sorted_distances)
 
-    predictions = classify(all_sorted_distances, k, unfinished_weight)
+    predictions = classify(all_sorted_distances, k, fatal_weight)
     return predictions
 
 
@@ -102,15 +102,15 @@ def main():
 
     class_counts = computeClassCounts(train_labels)
 
-    test_unfinished = 0
+    test_fatal = 0
     for label in test_labels:
         if label == 1:
-            test_unfinished = test_unfinished + 1
+            test_fatal = test_fatal + 1
 
     print("Number of events used: " + str(len(train_data) + len(test_data)))
     print("Train: " + str(len(train_data)) + " Test: " + str(len(test_data)))
     print("Train Non-Fatal: " + str(class_counts[0]) + " Fatal: " + str(class_counts[1]))
-    print("Test Fatal: " + str(test_unfinished) + "\n")
+    print("Test Fatal: " + str(test_fatal) + "\n")
 
     # Lazy Guesser baseline (same as in naive_bayes.py: always guesses 0 = non-fatal)
     lazy_guesser_labels = []
@@ -131,13 +131,13 @@ def main():
     print("Recall: " + str(lazy_guesser_recall))
     print("F1: " + str(lazy_guesser_f1) + "\n")
 
-    # Measure and sort distances from each test project to all training projects once
+    # Measure and sort distances from each test event to all training events once
     all_sorted_distances = []
     for i in range(len(test_data)):
         sorted_distances = getSortedDistances(test_data[i], train_data, train_labels, p)
         all_sorted_distances.append(sorted_distances)
 
-    # 1. Standard KNN: every neighbor gets 1 vote (unfinished_weight = 1)
+    # 1. Standard KNN: every neighbor gets 1 vote (fatal_weight = 1)
     print("=== Standard KNN (Equal Vote = 1) ===")
     for k in k_values:
         predicted_labels = classify(all_sorted_distances, k, 1)
@@ -156,12 +156,12 @@ def main():
         print("Recall: " + str(recall))
         print("F1: " + str(f1) + "\n")
 
-    # 2. Weighted KNN Workaround: because there are 2664 finished vs only 48 unfinished projects in train,
-    # each unfinished neighbor gets (2664 / 48 = 55.5) votes so it is not drowned out by the majority class
-    unfinished_weight = class_counts[0] / class_counts[1]
-    print("=== Class-Weighted KNN Workaround (Unfinished Vote Weight = " + str(round(unfinished_weight, 2)) + ") ===")
+    # 2. Weighted KNN Workaround: because fatal events are the minority class in train,
+    # each fatal neighbor gets (non-fatal count / fatal count) votes so it is not drowned out by the majority class
+    fatal_weight = class_counts[0] / class_counts[1]
+    print("=== Class-Weighted KNN Workaround (Fatal Vote Weight = " + str(round(fatal_weight, 2)) + ") ===")
     for k in k_values:
-        predicted_labels = classify(all_sorted_distances, k, unfinished_weight)
+        predicted_labels = classify(all_sorted_distances, k, fatal_weight)
 
         precision, recall, f1, confusion = countmetrics(test_labels, predicted_labels)
 
@@ -179,3 +179,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

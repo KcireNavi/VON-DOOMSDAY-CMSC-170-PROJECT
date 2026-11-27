@@ -14,7 +14,7 @@ from splitting import accuracy, countmetrics
 csv_path = "../datasets/landslides.csv"
 
 
-# Measures how mixed the fatal and non-fatal projects are.
+# Measures how mixed the fatal and non-fatal events are.
 def gini(labels):
     if len(labels) == 0:
         return 0.0
@@ -156,7 +156,7 @@ def build_tree(
     return node
 
 
-# Follows one project through the tree to make a prediction.
+# Follows one event through the tree to make a prediction.
 def predict_one(tree, row):
     while not tree["leaf"]:
         if row[tree["feature"]] <= tree["threshold"]:
@@ -167,7 +167,7 @@ def predict_one(tree, row):
     return tree["prediction"]
 
 
-# Predicts the labels for all projects in the test set.
+# Predicts the labels for all events in the test set.
 def predict(tree, features):
     predictions = []
 
@@ -226,10 +226,10 @@ def main():
     test_labels = data["y_test"]
     feature_names = data["feature_names"]
 
-    test_unfinished = np.sum(test_labels == 1)
+    test_fatal = np.sum(test_labels == 1)
 
     print(
-        "Projects used: "
+        "Events used: "
         + str(len(train_features) + len(test_features))
     )
     print(
@@ -239,8 +239,8 @@ def main():
         + str(len(test_features))
     )
     print(
-        "Test Unfinished: "
-        + str(test_unfinished)
+        "Test Fatal: "
+        + str(test_fatal)
         + "\n"
     )
 
