@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="Comparing Naive Bayes, k-nearest neighbors and a decision tree for predicting whether a landslide in the NASA Global Landslide Catalog is fatal.">
-<title>TITLE</title>
+<meta property="og:title" content="Early Severity Assessment of Landslide Events: Machine Learning Comparison">
+<meta property="og:description" content="A comparative study of Naive Bayes, K-Nearest Neighbors, and Decision Trees in classifying fatal landslides from the NASA Global Landslide Catalog.">
+<meta property="og:image" content="method_comparison.png">
+<title>Early Severity Assessment of Landslide Events for Response Prioritization: A Comparison of Naive Bayes, K-Nearest Neighbors, and Decision Trees in Classifying Fatal Landslides</title>
 <link rel="stylesheet" href="index.css">
 </head>
 <body>
@@ -13,16 +16,15 @@
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="wrap">
-  <h1>TITLE</h1>
+  <h1>Early Severity Assessment of Landslide Events for Response Prioritization: A Comparison of Naive Bayes, K-Nearest Neighbors, and Decision Trees in Classifying Fatal Landslides</h1>
   <p><b>VON DOOMSDAY ON DEC 18</b></p>
   <p>[1] Abonal, Julian, [2] Madelo, Allen, [3] Manuel, Ivan Erick, [4] Noble, Alexus Benhur</p>
-  <p class="links"><a class="primary" href="#repository">Repository</a><a href="#repository">Slides</a></p>
+  <p class="links"><a class="primary" href="https://github.com/KcireNavi/VON-DOOMSDAY-CMSC-170-PROJECT/tree/main" target="_blank" rel="noopener noreferrer">Repository</a><a href="https://www.canva.com/design/DAHcBMZ-92k/Xcf5yIMWe-n0G7a21oNVYQ/edit" target="_blank" rel="noopener noreferrer">Slides</a></p>
 </header>
 
 <nav aria-label="Page sections">
   <div class="wrap">
     <ul>
-      <li><a href="#summary">Summary</a></li>
       <li><a href="#problem">Problem</a></li>
       <li><a href="#dataset">Dataset</a></li>
       <li><a href="#methods">Methods</a></li>
@@ -31,6 +33,7 @@
       <li><a href="#discussion">Discussion</a></li>
       <li><a href="#conclusion">Conclusion</a></li>
       <li><a href="#references">References</a></li>
+      <li><a href="#repository">Links</a></li>
     </ul>
   </div>
 </nav>
@@ -47,7 +50,7 @@
     <h2 id="dataset-h">Dataset</h2>
     <dl class="facts">
       <dt>Source</dt>
-      <dd>NASA Global Landslide Catalog. <!-- TODO: add link and access date --></dd>
+      <dd><a href="https://data.nasa.gov/dataset/global-landslide-catalog-export/resource/7dc0d8c1-05f6-4c5c-8fee-20834e4d5d31" target="_blank" rel="noopener noreferrer">NASA Global Landslide Catalog</a> (accessed November 2026).</dd>
       <dt>Size</dt>
       <dd>9,648 events after dropping rows with a blank <code>fatality_count</code>. The experiments use a random sample of 6,000 of these, of which 1,526 (25.4%) are fatal.</dd>
       <dt>Target</dt>
@@ -55,7 +58,7 @@
       <dt>Features</dt>
       <dd>9 in total: <code>landslide_category</code>, <code>landslide_trigger</code>, <code>landslide_size</code>, <code>landslide_setting</code>, <code>location_accuracy</code>, <code>latitude</code>, <code>longitude</code>, <code>month</code>, <code>logpop</code>.</dd>
     </dl>
-    <p>The full dataset is too large to show here. <a href="#">Open the full dataset</a>.</p>
+    <p>The full dataset is too large to show here. <a href="https://data.nasa.gov/dataset/global-landslide-catalog-export/resource/7dc0d8c1-05f6-4c5c-8fee-20834e4d5d31" target="_blank" rel="noopener noreferrer">Open the full dataset</a>.</p>
 
     <h3>Preprocessing</h3>
     <p>Rows with a blank <code>fatality_count</code> were dropped. Blank categorical values were set to “unknown” and one-hot encoded, with an extra column for categories not seen in training. Blank numeric values were filled with the training median, and all numeric features were standardized. <code>month</code> comes from <code>event_date</code>, and <code>logpop</code> is the log of 1 plus the administrative division population.</p>
@@ -185,6 +188,8 @@
       <figcaption>Bars show each score on a scale from 0 to 1.</figcaption>
     </figure>
 
+    <p><a href="method_comparison.png" target="_blank" rel="noopener noreferrer">View generated comparison chart image (method_comparison.png)</a></p>
+
     <h3>How to read the metrics</h3>
     <p class="muted">Fatal landslide is the positive class.</p>
     <dl class="guide">
@@ -234,31 +239,31 @@
   <section id="references" aria-labelledby="references-h">
     <h2 id="references-h">References</h2>
     <ol>
-      <!-- TODO: add the dataset link and a textbook or paper for k-nearest neighbors and decision trees -->
-      <li>NASA Global Landslide Catalog.</li>
+      <!-- TODO: add a textbook or paper for k-nearest neighbors and decision trees -->
+      <li><a href="https://data.nasa.gov/dataset/global-landslide-catalog-export/resource/7dc0d8c1-05f6-4c5c-8fee-20834e4d5d31" target="_blank" rel="noopener noreferrer">NASA Global Landslide Catalog</a> (accessed November 2026).</li>
       <li>Dougherty, J., Kohavi, R., &amp; Sahami, M. (1995). Supervised and unsupervised discretization of continuous features. <i>Proceedings of ICML-12</i>, 194–202.</li>
+      <li>Lab Handouts about KNN and Naive Bayes</li>
+      <li>IBM. <a href="https://www.ibm.com/think/topics/decision-trees" target="_blank" rel="noopener noreferrer">What are Decision Trees?</a></li>
     </ol>
 
     <div class="note">
       <p><b>Code and AI disclosure</b></p>
-      <ul>
-        <p>We used AI tools (Claude Sonnet 5.5 and Gemini 3 Pro) to help write and revise the project code, including preprocessing, the three methods, and the comparison script, and to check formulas and suggest a reference, which we cross-checked.</p>
-      </ul>
+      <p>We used AI tools (Claude Sonnet 5.5 and Gemini 3 Pro) to help write and revise the project code, including preprocessing, the three methods, and the comparison script, and to check formulas and suggest a reference, which we cross-checked.</p>
     </div>
   </section>
 
   <section id="repository" aria-labelledby="repository-h">
     <h2 id="repository-h">Repository and slides</h2>
     <ul>
-      <li><a href="#">Code repository</a></li>
-      <li><a href="#">Presentation slides</a></li>
+      <li><a href="https://github.com/KcireNavi/VON-DOOMSDAY-CMSC-170-PROJECT/tree/main" target="_blank" rel="noopener noreferrer">Code repository (GitHub)</a></li>
+      <li><a href="https://www.canva.com/design/DAHcBMZ-92k/Xcf5yIMWe-n0G7a21oNVYQ/edit" target="_blank" rel="noopener noreferrer">Presentation slides (Canva)</a></li>
     </ul>
   </section>
 
 </main>
 
 <footer>
-  <div class="wrap"><p>Group name, Course, Term, Year</p></div>
+  <div class="wrap"><p>VON DOOMSDAY ON DEC 18 · CMSC 170 · 1st Semester 2026–2027</p></div>
 </footer>
 </body>
 </html>
