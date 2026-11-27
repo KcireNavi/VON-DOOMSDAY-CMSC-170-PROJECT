@@ -1,8 +1,0 @@
-Abonal 
-    - splitting.py:
-    Used klearn's test_train_split toy evaluate for the mode accuracy function
-    KNN read is used for splitting data to train and test
-    Implemented countermetric from Naive Bayes Exercise 
-
-    - Decision Trees:
-    https://www.ibm.com/think/topics/decision-trees is where I understood about decision trees
