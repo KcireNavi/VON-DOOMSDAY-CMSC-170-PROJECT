@@ -18,7 +18,7 @@
 <header class="wrap">
   <h1>Early Severity Assessment of Landslide Events for Response Prioritization: A Comparison of Naive Bayes, K-Nearest Neighbors, and Decision Trees in Classifying Fatal Landslides</h1>
   <p><b>VON DOOMSDAY ON DEC 18</b></p>
-  <p>[1] Abonal, Julian, [2] Madelo, Allen, [3] Manuel, Ivan Erick, [4] Noble, Alexus Benhur</p>
+  <p>Abonal, Julian ; Madelo, Allen ; Manuel, Ivan Erick ; Noble, Alexus Benhur</p>
   <p class="links"><a class="primary" href="https://github.com/KcireNavi/VON-DOOMSDAY-CMSC-170-PROJECT/tree/main" target="_blank" rel="noopener noreferrer">Repository</a><a href="https://www.canva.com/design/DAHcBMZ-92k/Xcf5yIMWe-n0G7a21oNVYQ/edit" target="_blank" rel="noopener noreferrer">Slides</a></p>
 </header>
 
@@ -42,8 +42,9 @@
 
   <section id="problem" aria-labelledby="problem-h">
     <h2 id="problem-h">Problem statement and motivation</h2>
-    <p>The task is to predict whether a landslide event is fatal from its category, trigger, size, setting, location accuracy, location and month.</p>
-    <p>Landslides kill people and destroy homes and roads. Identifying quickly which reported events are likely to be fatal could help responders decide where to send resources first, as in a decision support system for early severity assessment.</p>
+    <p>As defined by PHIVOLCS, landslide is the mass movement of rock, soil, and debris down a slope due to gravity. It can be caused by natural triggers, such as intense rainfall and ground vibrations, and man-made triggers.</p>
+    <p>This project is framed and tasked is to predict whether a landslide event is fatal from its category, trigger, size, setting, location accuracy, location and month.</p>
+    <p>Identifying quickly which reported events are likely to be fatal could help responders decide where to send resources first, as in a decision support system for early severity assessment.</p>
   </section>
 
   <section id="dataset" aria-labelledby="dataset-h">
@@ -58,7 +59,6 @@
       <dt>Features</dt>
       <dd>9 in total: <code>landslide_category</code>, <code>landslide_trigger</code>, <code>landslide_size</code>, <code>landslide_setting</code>, <code>location_accuracy</code>, <code>latitude</code>, <code>longitude</code>, <code>month</code>, <code>logpop</code>.</dd>
     </dl>
-    <p>The full dataset is too large to show here. <a href="https://data.nasa.gov/dataset/global-landslide-catalog-export/resource/7dc0d8c1-05f6-4c5c-8fee-20834e4d5d31" target="_blank" rel="noopener noreferrer">Open the full dataset</a>.</p>
 
     <h3>Preprocessing</h3>
     <p>Rows with a blank <code>fatality_count</code> were dropped. Blank categorical values were set to “unknown” and one-hot encoded, with an extra column for categories not seen in training. Blank numeric values were filled with the training median, and all numeric features were standardized. <code>month</code> comes from <code>event_date</code>, and <code>logpop</code> is the log of 1 plus the administrative division population.</p>
@@ -67,24 +67,23 @@
 
   <section id="methods" aria-labelledby="methods-h">
     <h2 id="methods-h">Methods</h2>
-    <p class="muted">All three methods are implemented from scratch with Python and NumPy.</p>
 
     <article class="method">
       <h3>Naive Bayes</h3>
-      <p><b>How it works and how we implemented it:</b> every feature is treated as categorical. Latitude, longitude, month and <code>logpop</code> are cut into 10 bins at training quantiles, and the one-hot columns stay 0 or 1. For each class, the method estimates how often each feature value occurs, using smoothing of 0.1 so unseen values do not give zero probability, and multiplies these with the class prior. An event is flagged fatal when its fatal probability reaches the cutoff.</p>
-      <p><b>Why we chose it:</b> a fast probabilistic method that works well with the one-hot encoded categorical features such as landslide category, trigger and size.</p>
+      <p><b>Implementation:</b> every feature is treated as categorical. Latitude, longitude, month and <code>logpop</code> are cut into 10 bins at training quantiles, and the one-hot columns stay 0 or 1. For each class, the method estimates how often each feature value occurs, using smoothing of 0.1 so unseen values do not give zero probability, and multiplies these with the class prior. An event is flagged fatal when its fatal probability reaches the cutoff.</p>
+      <p><b>Reason for choosing this method:</b> a fast probabilistic method that works well with the one-hot encoded categorical features such as landslide category, trigger and size.</p>
     </article>
 
     <article class="method">
       <h3>k-nearest neighbors</h3>
-      <p><b>How it works and how we implemented it:</b> the method measures the Euclidean distance from an event to every training event, and the k nearest events vote. Because fatal events are rarer, each fatal vote counts as many votes as the ratio of non-fatal to fatal training events, so fatal neighbors are not outvoted. Ties go to the closest neighbor.</p>
-      <p><b>Why we chose it:</b> it makes no assumptions about the data and tests whether landslides with similar characteristics and nearby locations tend to share the same outcome.</p>
+      <p><b>Implementation:</b> the method measures the Euclidean distance from an event to every training event, and the k nearest events vote. Because fatal events are rarer, each fatal vote counts as many votes as the ratio of non-fatal to fatal training events, so fatal neighbors are not outvoted. Ties go to the closest neighbor.</p>
+      <p><b>Reason for choosing this method:</b> it makes no assumptions about the data and tests whether landslides with similar characteristics and nearby locations tend to share the same outcome.</p>
     </article>
 
     <article class="method">
       <h3>Decision tree</h3>
-      <p><b>How it works and how we implemented it:</b> the tree repeatedly splits the data on one feature and threshold, choosing the split with the largest drop in Gini impurity, until the depth limit or the minimum sample sizes are reached. Each leaf predicts its majority class. Fatal events are duplicated in the training data until both classes are the same size.</p>
-      <p><b>Why we chose it:</b> it captures combinations of features, such as a large landslide in a populated area, and its rules are easy to read.</p>
+      <p><b>Implementation:</b> the tree repeatedly splits the data on one feature and threshold, choosing the split with the largest drop in Gini impurity, until the depth limit or the minimum sample sizes are reached. Each leaf predicts its majority class. Fatal events are duplicated in the training data until both classes are the same size.</p>
+      <p><b>Reason for choosing this method:</b> it captures combinations of features, such as a large landslide in a populated area, and its rules are easy to read.</p>
     </article>
   </section>
 
